@@ -12,12 +12,37 @@ import {
 
 type Request =
   | { type: 'load'; file: File }
-  | { type: 'preview'; timestamp: number; sequence: number }
-  | { type: 'export' }
+  | {
+      type: 'preview';
+      timestamp: number;
+      sequence: number;
+      treatment: Treatment;
+    }
+  | { type: 'export'; treatment: Treatment }
   | { type: 'dispose' };
+type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
+type Treatment = {
+  density: number;
+  brightness: number;
+  contrast: number;
+  inverted: boolean;
+  preset: CharacterPreset;
+};
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
   ' .\'`^",:;Il!i~+_-?][}{1)(|\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$';
+const ramps: Record<CharacterPreset, string> = {
+  Classic: chars,
+  Minimal: ' .#',
+  Binary: ' 01',
+};
+const defaultTreatment: Treatment = {
+  density: 88,
+  brightness: 0,
+  contrast: 100,
+  inverted: false,
+  preset: 'Classic',
+};
 let file: File | undefined;
 let width = 0;
 let height = 0;
@@ -28,7 +53,8 @@ let track: Awaited<ReturnType<Input['getPrimaryVideoTrack']>>;
 let sink: VideoSampleSink | undefined;
 let canvas: OffscreenCanvas | undefined;
 let latestPreviewSequence = 0;
-let pendingPreview: { timestamp: number; sequence: number } | undefined;
+let pendingPreview:
+  { timestamp: number; sequence: number; treatment: Treatment } | undefined;
 let processingPreview = false;
 
 function drawAscii(
@@ -42,11 +68,12 @@ function drawAscii(
     ) => void;
   },
   target = canvas,
+  treatment: Treatment = defaultTreatment,
 ) {
   if (!target) throw new Error('No video frame is loaded.');
   const context = target.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
-  const cols = 88;
+  const cols = treatment.density;
   const rows = Math.max(1, Math.round(((cols * height) / width) * 0.55));
   const cellW = target.width / cols;
   const cellH = target.height / rows;
@@ -63,15 +90,24 @@ function drawAscii(
   for (let y = 0; y < rows; y++)
     for (let x = 0; x < cols; x++) {
       const offset = (y * cols + x) * 4;
-      const brightness =
+      let brightness =
         (pixels[offset] * 0.2126 +
           pixels[offset + 1] * 0.7152 +
           pixels[offset + 2] * 0.0722) /
         255;
+      brightness =
+        (brightness - 0.5) * (treatment.contrast / 100) +
+        0.5 +
+        treatment.brightness / 100;
+      brightness = Math.max(0, Math.min(1, brightness));
+      if (treatment.inverted) brightness = 1 - brightness;
+      const ramp = ramps[treatment.preset];
       const char =
-        chars[
-          Math.min(chars.length - 1, Math.floor(brightness * chars.length))
-        ];
+        treatment.preset === 'Binary' && brightness < 0.18
+          ? ' '
+          : ramp[
+              Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))
+            ];
       context.fillText(char, x * cellW, y * cellH);
     }
 }
@@ -155,7 +191,7 @@ async function load(sourceFile: File) {
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
-  drawAscii(sample);
+  drawAscii(sample, canvas, defaultTreatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
@@ -170,7 +206,11 @@ async function load(sourceFile: File) {
   });
 }
 
-async function renderPreview(timestamp: number, sequence: number) {
+async function renderPreview(
+  timestamp: number,
+  sequence: number,
+  treatment: Treatment,
+) {
   if (!sink || !canvas || !track) return;
   const firstTimestamp = await track.getFirstTimestamp();
   const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
@@ -180,7 +220,7 @@ async function renderPreview(timestamp: number, sequence: number) {
     sample.close();
     return;
   }
-  drawAscii(sample);
+  drawAscii(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   if (sequence !== latestPreviewSequence) {
@@ -201,7 +241,11 @@ async function processPreviewQueue() {
       const request = pendingPreview;
       pendingPreview = undefined;
       try {
-        await renderPreview(request.timestamp, request.sequence);
+        await renderPreview(
+          request.timestamp,
+          request.sequence,
+          request.treatment,
+        );
       } catch (error) {
         if (request.sequence !== latestPreviewSequence) continue;
         scope.postMessage({
@@ -219,7 +263,7 @@ async function processPreviewQueue() {
   }
 }
 
-async function exportMp4() {
+async function exportMp4(treatment: Treatment) {
   if (!file || !input || !track || !sink || !canvas)
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
@@ -244,7 +288,7 @@ async function exportMp4() {
       throw new Error(
         `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
       );
-    drawAscii(sample, exportCanvas);
+    drawAscii(sample, exportCanvas, treatment);
     sample.close();
     await source.add(timestamp, Math.min(step, duration - timestamp));
     count++;
@@ -278,7 +322,12 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     void processPreviewQueue();
     return;
   }
-  const task = request.type === 'load' ? load(request.file) : exportMp4();
+  const task =
+    request.type === 'load'
+      ? load(request.file)
+      : request.type === 'export'
+        ? exportMp4(request.treatment)
+        : Promise.resolve();
   task.catch((error: unknown) => {
     if (request.type === 'load') {
       input?.dispose();

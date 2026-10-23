@@ -19,6 +19,23 @@ type WorkerReply =
   | { type: 'done'; bytes: ArrayBuffer }
   | { type: 'error'; message: string };
 
+type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
+type Treatment = {
+  density: number;
+  brightness: number;
+  contrast: number;
+  inverted: boolean;
+  preset: CharacterPreset;
+};
+
+const defaultTreatment: Treatment = {
+  density: 88,
+  brightness: 0,
+  contrast: 100,
+  inverted: false,
+  preset: 'Classic',
+};
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -33,6 +50,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [treatment, setTreatment] = useState(defaultTreatment);
 
   useEffect(() => {
     return () => {
@@ -68,8 +86,9 @@ export default function App() {
       type: 'preview',
       timestamp: currentTime,
       sequence,
+      treatment,
     });
-  }, [currentTime, duration, exporting]);
+  }, [currentTime, duration, exporting, treatment]);
 
   const chooseFile = (file?: File) => {
     if (!file) return;
@@ -173,7 +192,7 @@ export default function App() {
     setExporting(true);
     setProgress(0);
     setMessage('Encoding on this device…');
-    workerRef.current?.postMessage({ type: 'export' });
+    workerRef.current?.postMessage({ type: 'export', treatment });
   };
 
   return (
@@ -254,9 +273,116 @@ export default function App() {
           </p>
           <div className={styles.divider} />
           <p className={styles.eyebrow}>CHARACTER PRESET</p>
-          <div className={styles.preset}>
-            Classic <span>default</span>
-          </div>
+          <label className={styles.controlLabel} htmlFor="character-preset">
+            Character preset
+          </label>
+          <select
+            id="character-preset"
+            aria-label="Character preset"
+            className={styles.select}
+            value={treatment.preset}
+            disabled={exporting}
+            onChange={(event) => {
+              const preset = event.currentTarget.value as CharacterPreset;
+              setTreatment((current) => ({
+                ...current,
+                preset,
+              }));
+            }}
+          >
+            <option value="Classic">Classic</option>
+            <option value="Minimal">Minimal</option>
+            <option value="Binary">Binary</option>
+          </select>
+          <p className={styles.note}>
+            Classic: varied ASCII ramp (space to $) · Minimal: space, dot, hash
+            · Binary: space, 0, 1
+          </p>
+          <label className={styles.rangeLabel} htmlFor="density">
+            Density <span>{treatment.density} columns</span>
+          </label>
+          <input
+            id="density"
+            aria-label="Density"
+            className={styles.range}
+            type="range"
+            min={24}
+            max={160}
+            step={8}
+            value={treatment.density}
+            disabled={exporting}
+            onChange={(event) => {
+              const density = Number(event.currentTarget.value);
+              setTreatment((current) => ({
+                ...current,
+                density,
+              }));
+            }}
+          />
+          <p className={styles.note}>24–160 columns · default 88</p>
+          <label className={styles.rangeLabel} htmlFor="brightness">
+            Brightness <span>{treatment.brightness}</span>
+          </label>
+          <input
+            id="brightness"
+            aria-label="Brightness"
+            className={styles.range}
+            type="range"
+            min={-100}
+            max={100}
+            step={1}
+            value={treatment.brightness}
+            disabled={exporting}
+            onChange={(event) => {
+              const brightness = Number(event.currentTarget.value);
+              setTreatment((current) => ({
+                ...current,
+                brightness,
+              }));
+            }}
+          />
+          <p className={styles.note}>−100 to +100 · default 0</p>
+          <label className={styles.rangeLabel} htmlFor="contrast">
+            Contrast <span>{treatment.contrast}%</span>
+          </label>
+          <input
+            id="contrast"
+            aria-label="Contrast"
+            className={styles.range}
+            type="range"
+            min={0}
+            max={200}
+            step={1}
+            value={treatment.contrast}
+            disabled={exporting}
+            onChange={(event) => {
+              const contrast = Number(event.currentTarget.value);
+              setTreatment((current) => ({
+                ...current,
+                contrast,
+              }));
+            }}
+          />
+          <p className={styles.note}>0–200% · default 100%</p>
+          <label className={styles.checkboxLabel}>
+            <input
+              aria-label="Invert brightness mapping"
+              type="checkbox"
+              checked={treatment.inverted}
+              disabled={exporting}
+              onChange={(event) => {
+                const inverted = event.currentTarget.checked;
+                setTreatment((current) => ({
+                  ...current,
+                  inverted,
+                }));
+              }}
+            />
+            Invert brightness mapping
+          </label>
+          <p className={styles.note}>
+            Inversion changes character mapping only; colors stay the same.
+          </p>
           <p className={styles.eyebrow}>COLORS</p>
           <div className={styles.colors}>
             <span>
