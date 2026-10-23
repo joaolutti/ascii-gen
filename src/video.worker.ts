@@ -18,6 +18,8 @@ type Request =
       file: File;
       testExportFailure?: boolean;
       testExportDelay?: number;
+      testCodeBundleFailure?: boolean;
+      testCodeBundleDelay?: number;
     }
   | {
       type: 'preview';
@@ -26,8 +28,9 @@ type Request =
       treatment: Treatment;
     }
   | { type: 'export'; treatment: Treatment }
-  | { type: 'code-bundle'; treatment: Treatment }
+  | { type: 'code-bundle'; treatment: Treatment; operationId: number }
   | { type: 'cancel-export' }
+  | { type: 'cancel-code-bundle'; operationId: number }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
@@ -66,6 +69,11 @@ let didTestExportFail = false;
 
 let testExportDelay = 0;
 let testExportFailure = false;
+let testCodeBundleDelay = 0;
+let testCodeBundleFailure = false;
+let didTestCodeBundleFail = false;
+let activeCodeBundleId: number | undefined;
+let canceledCodeBundleId: number | undefined;
 
 function yieldToWorkerMessages() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -428,7 +436,16 @@ async function exportMp4(treatment: Treatment) {
   }
 }
 
-async function exportCodeBundle(treatment: Treatment) {
+async function exportCodeBundle(treatment: Treatment, operationId: number) {
+  if (activeCodeBundleId !== undefined)
+    throw new Error('Another ASCII bundle generation is already active.');
+  activeCodeBundleId = operationId;
+  canceledCodeBundleId = undefined;
+  const isCanceled = () => canceledCodeBundleId === operationId;
+  const finishCanceled = () => {
+    if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
+    scope.postMessage({ type: 'code-bundle-canceled', operationId });
+  };
   if (!file || !track || !sink || !canvas)
     throw new Error('Choose a source video first.');
   if (
@@ -461,6 +478,10 @@ async function exportCodeBundle(treatment: Treatment) {
   }> = [];
   let estimatedCharactersUsed = 2_000 + frameCount * 160;
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+    if (isCanceled()) {
+      finishCanceled();
+      return;
+    }
     const timestamp = frameIndex * step;
     if (timestamp >= duration) break;
     const frameEstimate =
@@ -484,7 +505,26 @@ async function exportCodeBundle(treatment: Treatment) {
     } finally {
       sample.close();
     }
-    await yieldToWorkerMessages();
+    scope.postMessage({
+      type: 'code-bundle-progress',
+      operationId,
+      value: Math.min(0.95, (frameIndex + 1) / frameCount),
+      completedFrames: frameIndex + 1,
+      totalFrames: frameCount,
+    });
+    if (testCodeBundleFailure && !didTestCodeBundleFail && frameIndex === 1) {
+      didTestCodeBundleFail = true;
+      throw new Error('Controlled ASCII bundle failure for recovery testing.');
+    }
+    if (testCodeBundleDelay > 0)
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, testCodeBundleDelay),
+      );
+    else await yieldToWorkerMessages();
+    if (isCanceled()) {
+      finishCanceled();
+      return;
+    }
   }
   const data = {
     version: 1,
@@ -513,14 +553,25 @@ async function exportCodeBundle(treatment: Treatment) {
   ]);
   if (zip.size > 12_000_000)
     throw new Error('This ASCII bundle would exceed the 12 MB bundle limit.');
+  if (isCanceled()) {
+    finishCanceled();
+    return;
+  }
   const bytes = await zip.arrayBuffer();
-  scope.postMessage({ type: 'code-bundle-done', bytes }, [bytes]);
+  if (isCanceled()) {
+    finishCanceled();
+    return;
+  }
+  scope.postMessage({ type: 'code-bundle-done', operationId, bytes }, [bytes]);
+  if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
 }
 
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
     exportCanceled = true;
+    if (activeCodeBundleId !== undefined)
+      canceledCodeBundleId = activeCodeBundleId;
     void activeOutput?.cancel();
     input?.dispose();
     input = undefined;
@@ -536,10 +587,21 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     testExportDelay = import.meta.env.DEV ? (request.testExportDelay ?? 0) : 0;
     testExportFailure =
       import.meta.env.DEV && request.testExportFailure === true;
+    testCodeBundleDelay = import.meta.env.DEV
+      ? (request.testCodeBundleDelay ?? 0)
+      : 0;
+    testCodeBundleFailure =
+      import.meta.env.DEV && request.testCodeBundleFailure === true;
   }
   if (request.type === 'cancel-export') {
     exportCanceled = true;
     void activeOutput?.cancel();
+    return;
+  }
+  if (request.type === 'cancel-code-bundle') {
+    if (activeCodeBundleId === request.operationId) {
+      canceledCodeBundleId = request.operationId;
+    }
     return;
   }
   if (request.type === 'preview') {
@@ -554,9 +616,14 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       : request.type === 'export'
         ? exportMp4(request.treatment)
         : request.type === 'code-bundle'
-          ? exportCodeBundle(request.treatment)
+          ? exportCodeBundle(request.treatment, request.operationId)
           : Promise.resolve();
   task.catch((error: unknown) => {
+    if (request.type === 'code-bundle') {
+      if (activeCodeBundleId === request.operationId)
+        activeCodeBundleId = undefined;
+      if (canceledCodeBundleId === request.operationId) return;
+    }
     if (request.type === 'load') {
       input?.dispose();
       input = undefined;
@@ -567,6 +634,9 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     }
     scope.postMessage({
       type: 'error',
+      ...(request.type === 'code-bundle'
+        ? { operationId: request.operationId }
+        : {}),
       message:
         error instanceof Error ? error.message : 'Video processing failed.',
     });

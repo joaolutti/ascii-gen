@@ -42,15 +42,14 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     timeout: 60_000,
   });
   await expect(
-    page.getByRole('button', { name: 'Download ASCII code bundle' }),
+    page.getByRole('button', { name: 'Generate ASCII code bundle' }),
   ).toBeEnabled({ timeout: 60_000 });
 
-  await page
-    .getByRole('button', { name: 'Download ASCII code bundle' })
-    .click();
-  await expect(page.getByRole('status')).toContainText('bundle is ready');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Save ASCII code bundle' }).click();
+  await page
+    .getByRole('button', { name: 'Generate ASCII code bundle' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('Download requested');
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('ascii-code-bundle.zip');
   const directory = mkdtempSync(join(tmpdir(), 'ascii-bundle-'));
@@ -128,13 +127,20 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     await expect(consumer.getByRole('button', { name: 'Pause' })).toBeVisible();
     await consumer.close();
 
-    await page.getByLabel('Source-color mode').check();
+    const saveAgainPromise = page.waitForEvent('download');
     await page
-      .getByRole('button', { name: 'Download ASCII code bundle' })
+      .getByRole('link', { name: 'Save ASCII code bundle again' })
       .click();
-    await expect(page.getByRole('status')).toContainText('bundle is ready');
+    expect((await saveAgainPromise).suggestedFilename()).toBe(
+      'ascii-code-bundle.zip',
+    );
+
+    await page.getByLabel('Source-color mode').check();
     const sourceColorDownloadPromise = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Save ASCII code bundle' }).click();
+    await page
+      .getByRole('button', { name: 'Generate ASCII code bundle' })
+      .click();
+    await expect(page.getByRole('status')).toContainText('Download requested');
     const sourceColorDownload = await sourceColorDownloadPromise;
     const sourceColorArchive = join(directory, 'source-colors.zip');
     await sourceColorDownload.saveAs(sourceColorArchive);
