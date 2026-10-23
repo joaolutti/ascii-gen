@@ -158,7 +158,8 @@ function drawPixelated(
   context.fillRect(0, 0, target.width, target.height);
   context.fillStyle = treatment.foreground;
   const step = treatment.gridStep;
-  const spacing = Math.max(0, Math.min(0.75, treatment.spacing / 100));
+  const spacing = Math.max(0, Math.min(0.8, treatment.spacing / 100));
+  const maxCellSide = step * (1 - spacing);
   const columns = Math.max(1, Math.round(target.width / step));
   const rows = Math.max(1, Math.round(target.height / step));
   const centerX = (columns - 1) / 2;
@@ -198,7 +199,7 @@ function drawPixelated(
         ),
       );
       if (treatment.inverted) brightness = 1 - brightness;
-      const side = step * (1 - spacing) * brightness;
+      const side = maxCellSide * brightness;
       if (side <= 0) continue;
       context.fillStyle = treatment.foreground;
       context.fillRect(x - side / 2, y - side / 2, side, side);

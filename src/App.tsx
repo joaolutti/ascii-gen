@@ -27,7 +27,7 @@ type WorkerReply =
   | { type: 'disposed' }
   | { type: 'error'; message: string };
 
-const defaultTreatment: Treatment = {
+const defaultAsciiTreatment: Treatment = {
   mode: 'ASCII',
   density: 88,
   gridStep: 8,
@@ -39,6 +39,13 @@ const defaultTreatment: Treatment = {
   foreground: '#ffffff',
   background: '#111111',
   sourceColor: false,
+};
+
+const defaultPixelatedTreatment: Treatment = {
+  ...defaultAsciiTreatment,
+  mode: 'Pixelated',
+  foreground: '#ffb547',
+  background: '#000000',
 };
 
 export default function App() {
@@ -55,7 +62,17 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [treatment, setTreatment] = useState(defaultTreatment);
+  const [mode, setMode] = useState<RenderMode>('ASCII');
+  const [treatments, setTreatments] = useState<Record<RenderMode, Treatment>>({
+    ASCII: defaultAsciiTreatment,
+    Pixelated: defaultPixelatedTreatment,
+  });
+  const treatment = treatments[mode];
+  const setTreatment = (update: (current: Treatment) => Treatment) =>
+    setTreatments((current) => ({
+      ...current,
+      [mode]: update(current[mode]),
+    }));
 
   useEffect(() => {
     return () => {
@@ -232,17 +249,8 @@ export default function App() {
   };
 
   const resetControls = () =>
-    setTreatment(
-      treatment.mode === 'ASCII'
-        ? defaultTreatment
-        : {
-            ...defaultTreatment,
-            mode: 'Pixelated',
-            gridStep: 8,
-            spacing: 25,
-            foreground: '#ffb547',
-            background: '#000000',
-          },
+    setTreatment(() =>
+      mode === 'ASCII' ? defaultAsciiTreatment : defaultPixelatedTreatment,
     );
 
   return (
@@ -337,25 +345,7 @@ export default function App() {
             value={treatment.mode}
             disabled={exporting}
             onChange={(event) => {
-              const mode = event.currentTarget.value as RenderMode;
-              setTreatment((current) => ({
-                ...current,
-                mode,
-                ...(mode === 'Pixelated'
-                  ? {
-                      gridStep: 8,
-                      spacing: 25,
-                      foreground: '#ffb547',
-                      background: '#000000',
-                      brightness: 0,
-                      contrast: 100,
-                      inverted: false,
-                    }
-                  : {
-                      ...defaultTreatment,
-                      mode,
-                    }),
-              }));
+              setMode(event.currentTarget.value as RenderMode);
             }}
           >
             <option value="ASCII">ASCII</option>
@@ -532,7 +522,7 @@ export default function App() {
                 className={styles.range}
                 type="range"
                 min={4}
-                max={32}
+                max={40}
                 step={4}
                 value={treatment.gridStep}
                 disabled={exporting}
@@ -541,16 +531,17 @@ export default function App() {
                   setTreatment((current) => ({ ...current, gridStep }));
                 }}
               />
+              <p className={styles.note}>4–40 output pixels · default 8</p>
               <label className={styles.rangeLabel} htmlFor="spacing">
-                Spacing <span>{treatment.spacing}%</span>
+                Cell spacing <span>{treatment.spacing}%</span>
               </label>
               <input
                 id="spacing"
-                aria-label="Spacing"
+                aria-label="Cell spacing"
                 className={styles.range}
                 type="range"
                 min={0}
-                max={75}
+                max={80}
                 step={5}
                 value={treatment.spacing}
                 disabled={exporting}
@@ -559,6 +550,9 @@ export default function App() {
                   setTreatment((current) => ({ ...current, spacing }));
                 }}
               />
+              <p className={styles.note}>
+                0–80% minimum gap at maximum brightness · default 25%
+              </p>
               <label className={styles.rangeLabel} htmlFor="brightness">
                 Brightness <span>{treatment.brightness}</span>
               </label>
