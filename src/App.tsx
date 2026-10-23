@@ -54,6 +54,7 @@ export default function App() {
   const workerRef = useRef<Worker | null>(null);
   const pendingWorkerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
+  const displayedPreviewSequenceRef = useRef(-1);
   const exportOperationRef = useRef(0);
   const activeExportRef = useRef<number | null>(null);
   const playbackTimeRef = useRef(0);
@@ -104,14 +105,21 @@ export default function App() {
   useEffect(() => {
     if (!playing || !duration || exporting) return;
     let previous = performance.now();
-    const timer = window.setInterval(() => {
-      const now = performance.now();
+    let lastPublished = previous;
+    let animationFrame = 0;
+    const frameInterval = 1000 / 30;
+    const advance = (now: number) => {
       playbackTimeRef.current =
         (playbackTimeRef.current + (now - previous) / 1000) % duration;
       previous = now;
-      setCurrentTime(playbackTimeRef.current);
-    }, 100);
-    return () => window.clearInterval(timer);
+      if (now - lastPublished >= frameInterval) {
+        lastPublished = now;
+        setCurrentTime(playbackTimeRef.current);
+      }
+      animationFrame = window.requestAnimationFrame(advance);
+    };
+    animationFrame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [duration, exporting, playing]);
 
   useEffect(() => {
@@ -136,10 +144,11 @@ export default function App() {
       return;
     }
     if (reply.type === 'preview') {
-      if (reply.sequence !== previewSequenceRef.current) {
+      if (reply.sequence <= displayedPreviewSequenceRef.current) {
         reply.bitmap.close();
         return;
       }
+      displayedPreviewSequenceRef.current = reply.sequence;
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.width = reply.bitmap.width;
@@ -253,6 +262,7 @@ export default function App() {
           pendingWorkerRef.current = null;
           if (previous) releaseWorker(previous);
           previewSequenceRef.current = 0;
+          displayedPreviewSequenceRef.current = -1;
           setDownloadUrl((url) => {
             if (url) URL.revokeObjectURL(url);
             return '';
