@@ -23,10 +23,18 @@ type WorkerReply =
       totalFrames: number;
     }
   | { type: 'done'; bytes: ArrayBuffer }
-  | { type: 'code-bundle-done'; bytes: ArrayBuffer }
+  | {
+      type: 'code-bundle-progress';
+      operationId: number;
+      value: number;
+      completedFrames: number;
+      totalFrames: number;
+    }
+  | { type: 'code-bundle-done'; operationId: number; bytes: ArrayBuffer }
+  | { type: 'code-bundle-canceled'; operationId: number }
   | { type: 'canceled' }
   | { type: 'disposed' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; operationId?: number };
 
 const defaultTreatment: Treatment = {
   density: 88,
@@ -44,7 +52,8 @@ export default function App() {
   const workerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
   const playbackTimeRef = useRef(0);
-  const codeBundlePendingRef = useRef(false);
+  const codeBundleOperationIdRef = useRef(0);
+  const activeCodeBundleRef = useRef<number | undefined>(undefined);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
   const [canExport, setCanExport] = useState(false);
@@ -123,7 +132,8 @@ export default function App() {
     setCanExport(false);
     setCanGenerateBundle(false);
     setGeneratingBundle(false);
-    codeBundlePendingRef.current = false;
+    activeCodeBundleRef.current = undefined;
+    codeBundleOperationIdRef.current++;
     setExporting(false);
     setProgress(0);
     setDuration(0);
@@ -204,16 +214,28 @@ export default function App() {
         setDownloadUrl(url);
         setExporting(false);
         setMessage('Your silent ASCII video is ready.');
+      } else if (reply.type === 'code-bundle-progress') {
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        setProgress(reply.value);
       } else if (reply.type === 'code-bundle-done') {
-        codeBundlePendingRef.current = false;
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        activeCodeBundleRef.current = undefined;
         setGeneratingBundle(false);
-        if (bundleUrl) URL.revokeObjectURL(bundleUrl);
-        setBundleUrl(
-          URL.createObjectURL(
-            new Blob([reply.bytes], { type: 'application/zip' }),
-          ),
+        setProgress(1);
+        const url = URL.createObjectURL(
+          new Blob([reply.bytes], { type: 'application/zip' }),
         );
-        setMessage('Your ASCII code bundle is ready.');
+        setBundleUrl(url);
+        setMessage('Your ASCII code bundle is ready. Download requested.');
+        requestDownload(url, 'ascii-code-bundle.zip');
+      } else if (reply.type === 'code-bundle-canceled') {
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        activeCodeBundleRef.current = undefined;
+        setGeneratingBundle(false);
+        setProgress(0);
+        setMessage(
+          'Generation canceled. Your source video and settings are ready to try again.',
+        );
       } else if (reply.type === 'canceled') {
         setExporting(false);
         setProgress(0);
@@ -221,8 +243,15 @@ export default function App() {
           'Export canceled. Your source video and settings are ready.',
         );
       } else if (reply.type === 'error') {
-        const failedBundle = codeBundlePendingRef.current;
-        codeBundlePendingRef.current = false;
+        if (
+          reply.operationId !== undefined &&
+          activeCodeBundleRef.current !== reply.operationId
+        )
+          return;
+        const failedBundle =
+          reply.operationId !== undefined &&
+          activeCodeBundleRef.current === reply.operationId;
+        if (failedBundle) activeCodeBundleRef.current = undefined;
         setGeneratingBundle(false);
         setExporting(false);
         setProgress(0);
@@ -242,6 +271,11 @@ export default function App() {
       testExportDelay: import.meta.env.DEV
         ? Number(testOptions.get('testExportDelay') ?? 0)
         : 0,
+      testCodeBundleFailure:
+        import.meta.env.DEV && testOptions.has('testCodeBundleFailure'),
+      testCodeBundleDelay: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleDelay') ?? 0)
+        : 0,
     });
   };
 
@@ -258,17 +292,27 @@ export default function App() {
   };
 
   const generateCodeBundle = () => {
-    if (bundleUrl) URL.revokeObjectURL(bundleUrl);
-    setBundleUrl('');
     setPlaying(false);
-    codeBundlePendingRef.current = true;
+    const operationId = ++codeBundleOperationIdRef.current;
+    activeCodeBundleRef.current = operationId;
     setGeneratingBundle(true);
+    setProgress(0);
     setMessage('Generating character data locally…');
-    workerRef.current?.postMessage({ type: 'code-bundle', treatment });
+    workerRef.current?.postMessage({
+      type: 'code-bundle',
+      operationId,
+      treatment: { ...treatment },
+    });
   };
 
   const cancelExport = () => {
     workerRef.current?.postMessage({ type: 'cancel-export' });
+  };
+
+  const cancelCodeBundle = () => {
+    const operationId = activeCodeBundleRef.current;
+    if (operationId === undefined) return;
+    workerRef.current?.postMessage({ type: 'cancel-code-bundle', operationId });
   };
 
   const resetControls = () => setTreatment(defaultTreatment);
@@ -530,7 +574,7 @@ export default function App() {
             disabled={!canGenerateBundle || controlsDisabled}
             onClick={generateCodeBundle}
           >
-            Download ASCII code bundle
+            Generate ASCII code bundle
           </button>
           {exporting && (
             <div className={styles.exportStatus}>
@@ -542,6 +586,23 @@ export default function App() {
                 onClick={cancelExport}
               >
                 Cancel export
+              </button>
+            </div>
+          )}
+          {generatingBundle && (
+            <div className={styles.exportStatus}>
+              <progress
+                aria-label="Generation progress"
+                max={1}
+                value={progress}
+              />
+              <span>Generating {Math.round(progress * 100)}% complete</span>
+              <button
+                type="button"
+                className={styles.cancel}
+                onClick={cancelCodeBundle}
+              >
+                Cancel generation
               </button>
             </div>
           )}
@@ -560,7 +621,7 @@ export default function App() {
               href={bundleUrl}
               download="ascii-code-bundle.zip"
             >
-              Save ASCII code bundle
+              Save ASCII code bundle again
             </a>
           )}
           <p className={styles.note}>
@@ -583,4 +644,14 @@ function releaseWorker(worker: Worker | null) {
     }
   };
   worker.postMessage({ type: 'dispose' });
+}
+
+function requestDownload(url: string, filename: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  link.remove();
 }
