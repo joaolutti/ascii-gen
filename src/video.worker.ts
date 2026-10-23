@@ -67,21 +67,63 @@ function drawAscii(sample: {
 }
 
 async function load(sourceFile: File) {
+  if (sourceFile.size > 100_000_000)
+    throw new Error(
+      'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
+    );
   file = sourceFile;
   input = new Input({
     formats: ALL_FORMATS,
     source: new BlobSource(sourceFile),
   });
-  const mime = await input.getMimeType();
-  if (!mime.startsWith('video/mp4') || !/avc1/i.test(mime))
-    throw new Error('Choose an H.264 MP4 source video.');
+  let mime: string | null;
+  try {
+    mime = await input.getMimeType();
+  } catch {
+    throw new Error(
+      'This file could not be read as a supported video. Choose an H.264 MP4.',
+    );
+  }
+  if (!mime?.startsWith('video/mp4'))
+    throw new Error(
+      'This container is not supported. Choose an H.264 MP4 source video.',
+    );
   track = await input.getPrimaryVideoTrack();
   if (!track) throw new Error('This MP4 has no video track.');
+  if ((await track.getCodec()) !== 'avc')
+    throw new Error(
+      'This MP4 does not contain H.264 video. Choose an H.264 MP4 source video.',
+    );
   width = track.displayWidth;
   height = track.displayHeight;
   duration = await input.computeDuration();
-  sourceFrameRate =
-    (await track.computeFrameRateMetrics()).bestGuessFrameRate || 30;
+  if (!Number.isFinite(duration) || duration <= 0)
+    throw new Error(
+      'The video duration could not be read. Choose a readable H.264 MP4.',
+    );
+  if (duration >= 15)
+    throw new Error(
+      'This source video is 15 seconds or longer. Choose a shorter clip.',
+    );
+  const portrait = height > width;
+  const maxWidth = portrait ? 1080 : 1920;
+  const maxHeight = portrait ? 1920 : 1080;
+  if (width > maxWidth || height > maxHeight)
+    throw new Error(
+      `This source video is larger than ${maxWidth} × ${maxHeight}. Choose a smaller video.`,
+    );
+  const frameRate = await track.computeFrameRateMetrics({
+    targetPacketCount: 512,
+  });
+  if (frameRate.maxFrameRate > 60)
+    throw new Error(
+      'This source video exceeds 60 fps. Choose a video at 60 fps or less.',
+    );
+  sourceFrameRate = frameRate.bestGuessFrameRate || 30;
+  if (!(await track.canDecode()))
+    throw new Error(
+      'This device cannot decode this H.264 source video. Try a supported H.264 MP4 in Chrome or Edge.',
+    );
   sink = new VideoSampleSink(track);
   canvas = new OffscreenCanvas(width, height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
@@ -92,23 +134,10 @@ async function load(sourceFile: File) {
   scope.postMessage({ type: 'preview', bitmap, name: sourceFile.name }, [
     bitmap,
   ]);
-  const supported =
-    typeof VideoEncoder !== 'undefined' &&
-    (
-      await VideoEncoder.isConfigSupported({
-        codec: 'avc1.42001f',
-        width: canvas.width,
-        height: canvas.height,
-        bitrate: 1_500_000,
-        framerate: 30,
-      })
-    ).supported === true;
   scope.postMessage({
     type: 'ready',
-    supported,
-    message: supported
-      ? 'Classic characters · white on near-black'
-      : 'This browser cannot encode H.264 MP4 on this device.',
+    width: canvas.width,
+    height: canvas.height,
   });
 }
 

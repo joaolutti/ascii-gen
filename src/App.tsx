@@ -3,7 +3,7 @@ import styles from './App.module.css';
 
 type WorkerReply =
   | { type: 'preview'; bitmap: ImageBitmap; name: string }
-  | { type: 'ready'; supported: boolean; message: string }
+  | { type: 'ready'; width: number; height: number }
   | { type: 'progress'; value: number }
   | { type: 'done'; bytes: ArrayBuffer }
   | { type: 'error'; message: string };
@@ -35,6 +35,19 @@ export default function App() {
     });
     setName(file.name);
     setCanExport(false);
+    setExporting(false);
+    setProgress(0);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+    if (file.size > 100_000_000) {
+      setMessage(
+        'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
+      );
+      return;
+    }
     setMessage('Reading source video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
@@ -52,8 +65,31 @@ export default function App() {
         }
         setName(reply.name);
       } else if (reply.type === 'ready') {
-        setCanExport(reply.supported);
-        setMessage(reply.message);
+        setMessage('Checking H.264 MP4 export on this device…');
+        void (async () => {
+          const supported =
+            typeof VideoEncoder !== 'undefined' &&
+            (
+              await VideoEncoder.isConfigSupported({
+                codec: 'avc1.42001f',
+                width: reply.width,
+                height: reply.height,
+                bitrate: 1_500_000,
+                framerate: 30,
+              })
+            ).supported === true;
+          if (workerRef.current !== worker) return;
+          setCanExport(supported);
+          setMessage(
+            supported
+              ? 'Classic characters · white on near-black'
+              : 'This browser cannot encode H.264 MP4 on this device.',
+          );
+        })().catch(() => {
+          if (workerRef.current !== worker) return;
+          setCanExport(false);
+          setMessage('This browser cannot encode H.264 MP4 on this device.');
+        });
       } else if (reply.type === 'progress') {
         setProgress(reply.value);
       } else if (reply.type === 'done') {
@@ -84,7 +120,15 @@ export default function App() {
         <span className={styles.brand}>ASCII VIDEO</span>
         <span className={styles.local}>Processed on this device</span>
       </header>
-      <section className={styles.workspace} aria-label="Video converter">
+      <section
+        className={styles.workspace}
+        aria-label="Video converter"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          chooseFile(event.dataTransfer.files[0]);
+        }}
+      >
         <div className={styles.preview}>
           {name ? (
             <canvas ref={canvasRef} aria-label="ASCII preview" />
@@ -103,7 +147,10 @@ export default function App() {
               aria-label="Choose source video"
               type="file"
               accept="video/mp4,.mp4"
-              onChange={(event) => chooseFile(event.target.files?.[0])}
+              onChange={(event) => {
+                chooseFile(event.target.files?.[0]);
+                event.currentTarget.value = '';
+              }}
             />
           </label>
           {name && <h1 className={styles.filename}>{name}</h1>}
