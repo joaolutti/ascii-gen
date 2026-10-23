@@ -27,3 +27,15 @@ _Avoid_: Original colors, automatic colors
 **Inversion**:
 Reversal of the brightness-to-character mapping. Inversion changes which characters represent light and dark regions without swapping the chosen colors.
 _Avoid_: Color inversion, negative
+
+**Pixelated mode**:
+A rendering mode that represents the source video as a regular grid of square cells. Cell size follows adjusted source brightness; foreground and background colors remain independently selectable.
+_Avoid_: Mosaic effect, pixel art
+
+**Grid step**:
+The distance in output pixels between neighboring Pixelated cell centers. Smaller steps create a finer grid. The default is 8 px, with a supported range of 4–40 px.
+_Avoid_: Pixel size, resolution
+
+**Cell spacing**:
+The percentage of each Grid step left empty around a Pixelated cell. The default is 25%, with a supported range of 0–80%; 0% fills each step and 80% leaves the largest gaps.
+_Avoid_: Gap size, padding

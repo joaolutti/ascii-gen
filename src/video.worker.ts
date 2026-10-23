@@ -322,17 +322,9 @@ async function renderPreview(
   const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
   const sample = await sink.getSample(firstTimestamp + boundedTimestamp);
   if (!sample) return;
-  if (sequence !== latestPreviewSequence) {
-    sample.close();
-    return;
-  }
   drawFrame(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
-  if (sequence !== latestPreviewSequence) {
-    bitmap.close();
-    return;
-  }
   scope.postMessage(
     { type: 'preview', bitmap, name: file?.name ?? '', sequence },
     [bitmap],
