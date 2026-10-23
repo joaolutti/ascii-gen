@@ -144,6 +144,13 @@ function extractCharacterRows(
   sample: Parameters<typeof drawAscii>[0],
   treatment: Treatment,
 ) {
+  return extractCharacterGrid(sample, treatment).rows;
+}
+
+function extractCharacterGrid(
+  sample: Parameters<typeof drawAscii>[0],
+  treatment: Treatment,
+) {
   const columns = treatment.density;
   const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
   const source = new OffscreenCanvas(columns, rows);
@@ -153,8 +160,10 @@ function extractCharacterRows(
   const pixels = sourceContext.getImageData(0, 0, columns, rows).data;
   const ramp = ramps[treatment.preset];
   const output: string[] = [];
+  const colors: string[] = [];
   for (let y = 0; y < rows; y++) {
     let line = '';
+    let colorLine = '';
     for (let x = 0; x < columns; x++) {
       const offset = (y * columns + x) * 4;
       let brightness =
@@ -171,11 +180,23 @@ function extractCharacterRows(
       line +=
         treatment.preset === 'Binary' && brightness < 0.18
           ? ' '
-          : ramp[Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))];
+          : ramp[
+              Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))
+            ];
+      if (treatment.sourceColor) {
+        const red = pixels[offset]!.toString(16).padStart(2, '0');
+        const green = pixels[offset + 1]!.toString(16).padStart(2, '0');
+        const blue = pixels[offset + 2]!.toString(16).padStart(2, '0');
+        colorLine += red + green + blue;
+      }
     }
     output.push(line);
+    if (treatment.sourceColor) colors.push(colorLine);
   }
-  return output;
+  return {
+    rows: output,
+    ...(treatment.sourceColor ? { colors } : {}),
+  };
 }
 
 function outputDimensions(sourceWidth: number, sourceHeight: number) {
@@ -415,8 +436,6 @@ async function exportCodeBundle(treatment: Treatment) {
     !/^#[\da-f]{6}$/i.test(treatment.background)
   )
     throw new Error('Choose valid foreground and background colors.');
-  if (treatment.sourceColor)
-    throw new Error('ASCII code bundles currently support fixed colors.');
   const columns = treatment.density;
   const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
   const cellWidth = canvas.width / columns;
@@ -426,22 +445,42 @@ async function exportCodeBundle(treatment: Treatment) {
   const frameCount = Math.ceil(duration * frameRate);
   if (frameCount > 450 || columns * rows * frameCount > 7_200_000)
     throw new Error('This ASCII bundle would exceed the safe data limit.');
+  const cells = columns * rows * frameCount;
+  const estimatedDataCharacters =
+    2_000 +
+    frameCount * (160 + rows * 6) +
+    cells * (treatment.sourceColor ? 7 : 1);
+  if (estimatedDataCharacters > 5_000_000)
+    throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
   const firstTimestamp = await track.getFirstTimestamp();
-  const frames: Array<{ timestamp: number; duration: number; rows: string[] }> = [];
+  const frames: Array<{
+    timestamp: number;
+    duration: number;
+    rows: string[];
+    colors?: string[];
+  }> = [];
+  let estimatedCharactersUsed = 2_000 + frameCount * 160;
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
     const timestamp = frameIndex * step;
     if (timestamp >= duration) break;
+    const frameEstimate =
+      columns * rows * (treatment.sourceColor ? 7 : 1) + rows * 6;
+    if (estimatedCharactersUsed + frameEstimate > 5_000_000)
+      throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
     const sample = await sink.getSample(firstTimestamp + timestamp);
     if (!sample)
       throw new Error(
         `Could not decode the frame at ${timestamp.toFixed(3)} seconds.`,
       );
     try {
+      const grid = extractCharacterGrid(sample, treatment);
       frames.push({
         timestamp,
         duration: Math.min(step, duration - timestamp),
-        rows: extractCharacterRows(sample, treatment),
+        rows: grid.rows,
+        ...(grid.colors ? { colors: grid.colors } : {}),
       });
+      estimatedCharactersUsed += frameEstimate;
     } finally {
       sample.close();
     }
@@ -465,7 +504,7 @@ async function exportCodeBundle(treatment: Treatment) {
   if (dataJson.length > 5_000_000)
     throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
   const readme =
-    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline and starts paused. Use Play/Pause and the Loop checkbox to control playback.\n\nFiles: index.html is the self-contained example; player.js is reusable player code; data.json contains versioned row-major character frames. To reuse player.js, provide a pre element, a button, a checkbox, and a script element with id ascii-data containing the data JSON, then include player.js.\n';
+    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline and starts paused. Use Play/Pause and the Loop checkbox to control playback.\n\nFiles: index.html is the self-contained example; player.js is reusable player code; data.json contains versioned row-major character frames. Source-color frames include a row-major colors array of six-digit RGB values per cell; fixed-color frames omit colors and use foreground. Background remains independent. To reuse player.js, provide a pre element, a button, a checkbox, and a script element with id ascii-data containing the data JSON, then include player.js.\n';
   const zip = createZip([
     { name: 'index.html', content: createExampleHtml(data) },
     { name: 'player.js', content: playerJavaScript },
@@ -516,7 +555,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
         ? exportMp4(request.treatment)
         : request.type === 'code-bundle'
           ? exportCodeBundle(request.treatment)
-        : Promise.resolve();
+          : Promise.resolve();
   task.catch((error: unknown) => {
     if (request.type === 'load') {
       input?.dispose();

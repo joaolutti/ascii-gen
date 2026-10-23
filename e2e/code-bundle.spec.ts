@@ -8,6 +8,7 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
   page,
   context,
 }) => {
+  test.setTimeout(120_000);
   await context.route(/^https?:\/\/(?!127\.0\.0\.1:4173)/, (route) =>
     route.abort(),
   );
@@ -15,13 +16,19 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
   await page
     .getByLabel('Choose source video')
     .setInputFiles('public/fixtures/color-regions.mp4');
-  await expect(page.getByLabel('ASCII preview')).toBeVisible();
+  await expect(page.getByLabel('ASCII preview')).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(
     page.getByRole('button', { name: 'Download ASCII code bundle' }),
   ).toBeEnabled({ timeout: 60_000 });
 
+  await page
+    .getByRole('button', { name: 'Download ASCII code bundle' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('bundle is ready');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download ASCII code bundle' }).click();
+  await page.getByRole('link', { name: 'Save ASCII code bundle' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('ascii-code-bundle.zip');
   const directory = mkdtempSync(join(tmpdir(), 'ascii-bundle-'));
@@ -42,7 +49,12 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
       foreground: string;
       background: string;
       duration: number;
-      frames: Array<{ timestamp: number; duration: number; rows: string[] }>;
+      frames: Array<{
+        timestamp: number;
+        duration: number;
+        rows: string[];
+        colors?: string[];
+      }>;
     };
     expect(data.version).toBe(1);
     expect(data).toMatchObject({
@@ -62,9 +74,9 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     expect(
       data.frames.at(-1)!.timestamp + data.frames.at(-1)!.duration,
     ).toBeCloseTo(2, 4);
-    expect(
-      data.frames.every((frame) => frame.rows.length === data.rows),
-    ).toBe(true);
+    expect(data.frames.every((frame) => frame.rows.length === data.rows)).toBe(
+      true,
+    );
     expect(
       data.frames.every((frame) =>
         frame.rows.every((row) => row.length === data.columns),
@@ -76,7 +88,9 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     expect(readFileSync(join(directory, 'player.js'), 'utf8')).toContain(
       'requestAnimationFrame',
     );
-    expect(readFileSync(join(directory, 'README.txt'), 'utf8')).toContain('offline');
+    expect(readFileSync(join(directory, 'README.txt'), 'utf8')).toContain(
+      'offline',
+    );
 
     const example = join(directory, 'index.html');
     const consumer = await context.newPage();
@@ -93,10 +107,53 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     await consumer.close();
 
     await page.getByLabel('Source-color mode').check();
-    await page.getByRole('button', { name: 'Download ASCII code bundle' }).click();
-    await expect(page.getByRole('status')).toContainText(
-      'currently support fixed colors',
+    await page
+      .getByRole('button', { name: 'Download ASCII code bundle' })
+      .click();
+    await expect(page.getByRole('status')).toContainText('bundle is ready');
+    const sourceColorDownloadPromise = page.waitForEvent('download');
+    await page.getByRole('link', { name: 'Save ASCII code bundle' }).click();
+    const sourceColorDownload = await sourceColorDownloadPromise;
+    const sourceColorArchive = join(directory, 'source-colors.zip');
+    await sourceColorDownload.saveAs(sourceColorArchive);
+    execFileSync('unzip', ['-q', sourceColorArchive, '-d', directory]);
+    const sourceColorData = JSON.parse(
+      readFileSync(join(directory, 'data.json'), 'utf8'),
+    ) as {
+      frames: Array<{ rows: string[]; colors?: string[] }>;
+      rows: number;
+      columns: number;
+      background: string;
+    };
+    expect(sourceColorData.frames.every((frame) => frame.colors)).toBe(true);
+    const middle = Math.floor(sourceColorData.rows / 2);
+    const sampledColors = sourceColorData.frames[0]!.colors![middle]!;
+    const leftColor = Number.parseInt(
+      sampledColors.slice(22 * 6, 22 * 6 + 6),
+      16,
     );
+    const rightColor = Number.parseInt(
+      sampledColors.slice(66 * 6, 66 * 6 + 6),
+      16,
+    );
+    expect(leftColor >> 16).toBeGreaterThan(200);
+    expect((leftColor >> 8) & 255).toBeLessThan(40);
+    expect(leftColor & 255).toBeLessThan(40);
+    expect(rightColor >> 16).toBeLessThan(40);
+    expect((rightColor >> 8) & 255).toBeLessThan(40);
+    expect(rightColor & 255).toBeGreaterThan(200);
+
+    const sourceColorExample = await context.newPage();
+    await sourceColorExample.goto(`file://${join(directory, 'index.html')}`);
+    await expect(sourceColorExample.locator('pre span').first()).toHaveCSS(
+      'color',
+      /rgb\((2\d\d|255), 0, 0\)/,
+    );
+    await expect(sourceColorExample.locator('body')).toHaveCSS(
+      'background-color',
+      'rgb(17, 17, 17)',
+    );
+    await sourceColorExample.close();
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

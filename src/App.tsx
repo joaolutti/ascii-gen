@@ -258,12 +258,6 @@ export default function App() {
   };
 
   const generateCodeBundle = () => {
-    if (treatment.sourceColor) {
-      setMessage(
-        'ASCII code bundles currently support fixed colors. Turn off Source-color mode to continue.',
-      );
-      return;
-    }
     if (bundleUrl) URL.revokeObjectURL(bundleUrl);
     setBundleUrl('');
     setPlaying(false);
