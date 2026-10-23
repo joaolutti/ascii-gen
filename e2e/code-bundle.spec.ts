@@ -4,6 +4,28 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+type BrowserPlayer = {
+  play(): void;
+  pause(): void;
+  seek(time: number): void;
+  setLoop(enabled: boolean): void;
+  getCurrentTime(): number;
+  dispose(): void;
+};
+
+declare global {
+  interface Window {
+    AsciiVideoPlayer: {
+      mount(options: {
+        container: HTMLElement;
+        data: unknown;
+        autoplay?: boolean;
+      }): BrowserPlayer;
+    };
+    testPlayer: BrowserPlayer;
+  }
+}
+
 test('downloads an offline runnable ASCII code bundle from the editor', async ({
   page,
   context,
@@ -154,6 +176,80 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
       'rgb(17, 17, 17)',
     );
     await sourceColorExample.close();
+
+    const separateConsumer = await context.newPage();
+    await separateConsumer.emulateMedia({ reducedMotion: 'reduce' });
+    await separateConsumer.setContent(
+      '<main id="host" style="width:160px"></main>',
+    );
+    await separateConsumer.addScriptTag({ path: join(directory, 'player.js') });
+    await separateConsumer.evaluate(() => {
+      const data = {
+        version: 1,
+        width: 320,
+        height: 180,
+        columns: 24,
+        rows: 2,
+        cellWidth: 320 / 24,
+        cellHeight: 90,
+        fontSize: 90,
+        duration: 0.2,
+        frames: [
+          {
+            timestamp: 0,
+            duration: 0.1,
+            rows: ['A'.repeat(24), 'A'.repeat(24)],
+          },
+          {
+            timestamp: 0.1,
+            duration: 0.1,
+            rows: ['B'.repeat(24), 'B'.repeat(24)],
+          },
+        ],
+      };
+      const player = window.AsciiVideoPlayer.mount({
+        container: document.querySelector('#host'),
+        data,
+        autoplay: true,
+      });
+      window.testPlayer = player;
+    });
+    const hostedPre = separateConsumer.locator('pre');
+    await expect(hostedPre).toContainText(/^A/);
+    await expect(
+      separateConsumer.getByRole('button', { name: 'Play' }),
+    ).toBeVisible();
+    expect(
+      await hostedPre.evaluate((pre) => pre.getBoundingClientRect().width),
+    ).toBeLessThanOrEqual(160);
+    await separateConsumer.evaluate(() => window.testPlayer.seek(0.1));
+    await expect(hostedPre).toContainText(/^B/);
+    await separateConsumer.evaluate(() => window.testPlayer.seek(0.2));
+    await expect(hostedPre).toContainText(/^B/);
+    await separateConsumer.evaluate(() => {
+      window.testPlayer.setLoop(false);
+      window.testPlayer.play();
+    });
+    await expect(
+      separateConsumer.getByRole('button', { name: 'Play' }),
+    ).toBeVisible({ timeout: 1000 });
+    expect(
+      await separateConsumer.evaluate(() => window.testPlayer.getCurrentTime()),
+    ).toBeCloseTo(0.2, 2);
+    await separateConsumer.evaluate(() => {
+      window.testPlayer.seek(0);
+      window.testPlayer.setLoop(true);
+      window.testPlayer.play();
+    });
+    await separateConsumer.waitForTimeout(350);
+    expect(
+      await separateConsumer.evaluate(() => window.testPlayer.getCurrentTime()),
+    ).toBeLessThan(0.2);
+    await separateConsumer.evaluate(() => window.testPlayer.dispose());
+    await expect(separateConsumer.locator('#host').locator('> *')).toHaveCount(
+      0,
+    );
+    await separateConsumer.close();
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
