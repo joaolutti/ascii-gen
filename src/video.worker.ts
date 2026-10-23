@@ -27,6 +27,9 @@ type Treatment = {
   contrast: number;
   inverted: boolean;
   preset: CharacterPreset;
+  foreground: string;
+  background: string;
+  sourceColor: boolean;
 };
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
@@ -42,6 +45,9 @@ const defaultTreatment: Treatment = {
   contrast: 100,
   inverted: false,
   preset: 'Classic',
+  foreground: '#ffffff',
+  background: '#111111',
+  sourceColor: false,
 };
 let file: File | undefined;
 let width = 0;
@@ -82,9 +88,8 @@ function drawAscii(
   if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
   sample.draw(sourceContext, 0, 0, cols, rows);
   const pixels = sourceContext.getImageData(0, 0, cols, rows).data;
-  context.fillStyle = '#111111';
+  context.fillStyle = treatment.background;
   context.fillRect(0, 0, target.width, target.height);
-  context.fillStyle = '#ffffff';
   context.font = `${cellH}px monospace`;
   context.textBaseline = 'top';
   for (let y = 0; y < rows; y++)
@@ -108,6 +113,9 @@ function drawAscii(
           : ramp[
               Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))
             ];
+      context.fillStyle = treatment.sourceColor
+        ? `rgb(${pixels[offset]}, ${pixels[offset + 1]}, ${pixels[offset + 2]})`
+        : treatment.foreground;
       context.fillText(char, x * cellW, y * cellH);
     }
 }

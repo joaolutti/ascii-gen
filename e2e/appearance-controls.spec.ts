@@ -56,6 +56,52 @@ function meanDifference(left: number[], right: number[]) {
   return total / left.length;
 }
 
+async function colorMeans(page: Page) {
+  return page.getByLabel('ASCII preview').evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const { data, width, height } = canvas
+      .getContext('2d')!
+      .getImageData(0, 0, canvas.width, canvas.height);
+    const regions = [
+      [0, Math.floor(width / 2)],
+      [Math.floor(width / 2), width],
+    ];
+    return regions.map(([start, end]) => {
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let count = 0;
+      for (let y = 0; y < height; y++)
+        for (let x = start; x < end; x++) {
+          const offset = (y * width + x) * 4;
+          red += data[offset];
+          green += data[offset + 1];
+          blue += data[offset + 2];
+          count++;
+        }
+      return [red / count, green / count, blue / count];
+    });
+  });
+}
+
+async function countNearColor(page: Page, color: [number, number, number]) {
+  return page.getByLabel('ASCII preview').evaluate((element, target) => {
+    const canvas = element as HTMLCanvasElement;
+    const { data } = canvas
+      .getContext('2d')!
+      .getImageData(0, 0, canvas.width, canvas.height);
+    let count = 0;
+    for (let index = 0; index < data.length; index += 4)
+      if (
+        Math.abs(data[index] - target[0]) < 8 &&
+        Math.abs(data[index + 1] - target[1]) < 8 &&
+        Math.abs(data[index + 2] - target[2]) < 8
+      )
+        count++;
+    return count;
+  }, color);
+}
+
 async function exportFirstFrame(page: Page, outputPath: string) {
   await page.getByRole('button', { name: 'Export MP4' }).click();
   await expect(
@@ -191,4 +237,69 @@ test('appearance controls update the paused preview and downloaded frames', asyn
     expect(meanDifference(visiblePreview, downloadedFrame)).toBeLessThan(32);
     await treatmentPage.close();
   }
+});
+
+test('chosen colors and source-color mode stay in sync between preview and download', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.goto('/');
+  await page
+    .getByLabel('Choose source video')
+    .setInputFiles('public/fixtures/color-regions.mp4');
+  await expect(
+    page.getByRole('heading', { name: 'color-regions.mp4' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('ASCII preview')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+    timeout: 60_000,
+  });
+
+  const foreground = page.getByLabel('Foreground color');
+  const background = page.getByLabel('Background color');
+  await expect(foreground).toHaveValue('#ffffff');
+  await expect(background).toHaveValue('#111111');
+  await foreground.fill('#00ff00');
+  await background.fill('#202040');
+  await expect
+    .poll(async () => {
+      const means = await colorMeans(page);
+      return means[0][1] > means[0][0] + 35 && means[0][1] > means[0][2] + 15;
+    })
+    .toBe(true);
+  await expect
+    .poll(() => countNearColor(page, [32, 32, 64]))
+    .toBeGreaterThan(10_000);
+
+  const chosenPreview = await canvasPixels(page);
+  const chosenOutput = await exportFirstFrame(
+    page,
+    join(test.info().outputDir, 'chosen-colors.mp4'),
+  );
+  expect(meanDifference(chosenPreview, chosenOutput)).toBeLessThan(32);
+
+  await page.getByLabel('Source-color mode').check();
+  await expect(foreground).toHaveValue('#00ff00');
+  await expect
+    .poll(async () => {
+      const means = await colorMeans(page);
+      return means[0][0] > means[0][2] + 15 && means[1][2] > means[1][0] + 15;
+    })
+    .toBe(true);
+  const sourcePreview = await canvasPixels(page);
+  const sourceOutput = await exportFirstFrame(
+    page,
+    join(test.info().outputDir, 'source-colors.mp4'),
+  );
+  // H.264 4:2:0 chroma subsampling introduces larger shifts for saturated colors.
+  expect(meanDifference(sourcePreview, sourceOutput)).toBeLessThan(45);
+
+  await page.getByLabel('Source-color mode').uncheck();
+  await expect(foreground).toHaveValue('#00ff00');
+  await expect
+    .poll(async () => {
+      const means = await colorMeans(page);
+      return means[0][1] > means[0][0] + 35 && means[0][1] > means[0][2] + 15;
+    })
+    .toBe(true);
 });

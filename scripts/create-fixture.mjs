@@ -29,3 +29,33 @@ execFileSync('ffmpeg', [
   'public/fixtures/landscape.mp4',
 ]);
 console.log('Created public/fixtures/landscape.mp4');
+
+execFileSync('ffmpeg', [
+  '-hide_banner',
+  '-loglevel',
+  'error',
+  '-y',
+  '-f',
+  'lavfi',
+  '-i',
+  'color=c=red:s=160x180:r=12:d=2',
+  '-f',
+  'lavfi',
+  '-i',
+  'color=c=blue:s=160x180:r=12:d=2',
+  '-filter_complex',
+  '[0:v][1:v]hstack=inputs=2[v]',
+  '-map',
+  '[v]',
+  '-an',
+  '-c:v',
+  'libx264',
+  '-pix_fmt',
+  'yuv420p',
+  '-preset',
+  'ultrafast',
+  '-crf',
+  '18',
+  'public/fixtures/color-regions.mp4',
+]);
+console.log('Created public/fixtures/color-regions.mp4');

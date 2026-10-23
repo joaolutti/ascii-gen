@@ -171,25 +171,26 @@
 .checkboxLabel input {
   accent-color: #ddd;
 }
-.colors {
+.colorLabel {
   display: flex;
   justify-content: space-between;
-  color: #aaa;
-  font-size: 11px;
-}
-.colors span {
-  display: flex;
   align-items: center;
-  gap: 7px;
+  color: #bbb;
+  font-size: 12px;
+  margin: 12px 0;
 }
-.colors i {
-  width: 16px;
-  height: 16px;
-  border: 1px solid #555;
-  background: white;
+.colorLabel input {
+  width: 40px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #151515;
+  cursor: pointer;
 }
-.colors .backgroundSwatch {
-  background: #111;
+.colorLabel input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .export {
   width: 100%;

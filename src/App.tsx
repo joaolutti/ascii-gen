@@ -26,6 +26,9 @@ type Treatment = {
   contrast: number;
   inverted: boolean;
   preset: CharacterPreset;
+  foreground: string;
+  background: string;
+  sourceColor: boolean;
 };
 
 const defaultTreatment: Treatment = {
@@ -34,6 +37,9 @@ const defaultTreatment: Treatment = {
   contrast: 100,
   inverted: false,
   preset: 'Classic',
+  foreground: '#ffffff',
+  background: '#111111',
+  sourceColor: false,
 };
 
 export default function App() {
@@ -384,14 +390,51 @@ export default function App() {
             Inversion changes character mapping only; colors stay the same.
           </p>
           <p className={styles.eyebrow}>COLORS</p>
-          <div className={styles.colors}>
-            <span>
-              <i /> Foreground
-            </span>
-            <span>
-              <i className={styles.backgroundSwatch} /> Background
-            </span>
-          </div>
+          <label className={styles.colorLabel} htmlFor="foreground-color">
+            Foreground color
+            <input
+              id="foreground-color"
+              aria-label="Foreground color"
+              type="color"
+              value={treatment.foreground}
+              disabled={exporting}
+              onChange={(event) => {
+                const foreground = event.currentTarget.value;
+                setTreatment((current) => ({ ...current, foreground }));
+              }}
+            />
+          </label>
+          <label className={styles.colorLabel} htmlFor="background-color">
+            Background color
+            <input
+              id="background-color"
+              aria-label="Background color"
+              type="color"
+              value={treatment.background}
+              disabled={exporting}
+              onChange={(event) => {
+                const background = event.currentTarget.value;
+                setTreatment((current) => ({ ...current, background }));
+              }}
+            />
+          </label>
+          <label className={styles.checkboxLabel}>
+            <input
+              aria-label="Source-color mode"
+              type="checkbox"
+              checked={treatment.sourceColor}
+              disabled={exporting}
+              onChange={(event) => {
+                const sourceColor = event.currentTarget.checked;
+                setTreatment((current) => ({ ...current, sourceColor }));
+              }}
+            />
+            Sample source colors
+          </label>
+          <p className={styles.note}>
+            Source-color mode colors each character from its source region.
+            Brightness still selects the character.
+          </p>
           <button
             className={styles.export}
             disabled={!canExport || exporting}
