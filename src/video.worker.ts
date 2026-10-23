@@ -66,6 +66,18 @@ function drawAscii(sample: {
     }
 }
 
+function outputDimensions(sourceWidth: number, sourceHeight: number) {
+  const portrait = sourceHeight > sourceWidth;
+  const maxWidth = portrait ? 720 : 1280;
+  const maxHeight = portrait ? 1280 : 720;
+  const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+  // H.264 4:2:0 frames use even dimensions. Flooring avoids upscaling.
+  return {
+    width: Math.max(2, Math.floor((sourceWidth * scale) / 2) * 2),
+    height: Math.max(2, Math.floor((sourceHeight * scale) / 2) * 2),
+  };
+}
+
 async function load(sourceFile: File) {
   if (sourceFile.size > 100_000_000)
     throw new Error(
@@ -125,7 +137,8 @@ async function load(sourceFile: File) {
       'This device cannot decode this H.264 source video. Try a supported H.264 MP4 in Chrome or Edge.',
     );
   sink = new VideoSampleSink(track);
-  canvas = new OffscreenCanvas(width, height);
+  const dimensions = outputDimensions(width, height);
+  canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
   drawAscii(sample);
@@ -155,9 +168,16 @@ async function exportMp4() {
   let count = 0;
   const frameRate = Math.min(30, sourceFrameRate);
   const step = 1 / frameRate;
-  for (let timestamp = 0; timestamp < duration; timestamp += step) {
-    const sample = await sink.getSample(timestamp);
-    if (!sample) continue;
+  const firstTimestamp = await track.getFirstTimestamp();
+  const frameCount = Math.ceil(duration * frameRate);
+  for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+    const timestamp = frameIndex * step;
+    if (timestamp >= duration) break;
+    const sample = await sink.getSample(firstTimestamp + timestamp);
+    if (!sample)
+      throw new Error(
+        `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
+      );
     drawAscii(sample);
     sample.close();
     await source.add(timestamp, Math.min(step, duration - timestamp));
