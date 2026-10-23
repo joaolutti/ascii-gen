@@ -4,6 +4,8 @@ A local browser app that turns an H.264 MP4 into a silent ASCII MP4. Source vide
 
 ## Development
 
+See [project rules](RULES.md) for the branch workflow and commit convention.
+
 - `npm install` installs the exact dependency tree in `package-lock.json`.
 - `npm run dev` starts Vite.
 - `npm run build` type-checks and builds for production.

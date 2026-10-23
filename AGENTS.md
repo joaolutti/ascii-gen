@@ -1,3 +1,7 @@
+## Project rules
+
+Before creating branches, committing, or merging, read `RULES.md`.
+
 ## Agent skills
 
 ### Issue tracker
