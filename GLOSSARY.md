@@ -12,6 +12,10 @@ _Avoid_: Original, upload
 A video whose frames represent the source video's imagery as a regular grid of text characters, selected according to the brightness of each region.
 _Avoid_: ASCII animation, text video
 
+**ASCII code output**:
+A versioned bundle of actual character-frame data and a reusable standalone player, generated locally from a source video.
+_Avoid_: code video, text animation
+
 **Density**:
 The number of character columns across an ASCII video frame. Higher density represents the source video with finer detail.
 _Avoid_: Resolution, font size

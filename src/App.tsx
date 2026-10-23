@@ -180,7 +180,8 @@ export default function App() {
         setDuration(reply.duration);
         playbackTimeRef.current = 0;
         setMessage('Checking H.264 MP4 export on this device…');
-        setCanGenerateBundle(true);
+        const supportsZipDeflate = typeof CompressionStream === 'function';
+        setCanGenerateBundle(supportsZipDeflate);
         void (async () => {
           const supported =
             typeof VideoEncoder !== 'undefined' &&
@@ -196,9 +197,11 @@ export default function App() {
           if (workerRef.current !== worker) return;
           setCanExport(supported);
           setMessage(
-            supported
-              ? 'Classic characters · white on near-black'
-              : 'This browser cannot encode H.264 MP4 on this device.',
+            !supportsZipDeflate
+              ? 'This browser cannot create compressed ASCII code bundles. Use a current desktop Chrome or Edge browser.'
+              : supported
+                ? 'Classic characters · white on near-black'
+                : 'This browser cannot encode H.264 MP4 on this device.',
           );
         })().catch(() => {
           if (workerRef.current !== worker) return;
@@ -275,6 +278,9 @@ export default function App() {
         import.meta.env.DEV && testOptions.has('testCodeBundleFailure'),
       testCodeBundleDelay: import.meta.env.DEV
         ? Number(testOptions.get('testCodeBundleDelay') ?? 0)
+        : 0,
+      testCodeBundleLimitAfterFrames: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleLimitAfterFrames') ?? 0)
         : 0,
     });
   };

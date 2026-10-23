@@ -1,16 +1,29 @@
 export type BundleFile = { name: string; content: string };
 
+// Version 1's public output contract. Keep the producer and standalone
+// consumer validation on the same finite limits.
+export const codeBundleLimits = {
+  maxCellsPerFrame: 28_000,
+  maxTotalCells: 7_200_000,
+  maxFrames: 450,
+  maxJsonBytes: 5_000_000,
+  maxDecodedFrameDataBytes: 32_000_000,
+  maxBundleBytes: 12_000_000,
+} as const;
+
 const player = `(function (global) {
   'use strict';
   const fail = () => { throw new Error('Unsupported or corrupt ASCII data.'); };
   function validate(data) {
     if (!data || data.version !== 1 ||
+      typeof data.foreground !== 'string' || !/^#[0-9a-f]{6}$/i.test(data.foreground) ||
+      typeof data.background !== 'string' || !/^#[0-9a-f]{6}$/i.test(data.background) ||
       !Number.isInteger(data.width) || data.width < 1 || data.width > 1280 ||
       !Number.isInteger(data.height) || data.height < 1 || data.height > 1280 ||
       !Number.isInteger(data.columns) || data.columns < 24 || data.columns > 160 ||
       (data.columns - 24) % 8 !== 0 ||
       !Number.isInteger(data.rows) || data.rows < 1 || data.rows > 1200 ||
-      data.columns * data.rows > 288000 ||
+      data.columns * data.rows > 28000 ||
       !Number.isFinite(data.cellWidth) || data.cellWidth <= 0 ||
       !Number.isFinite(data.cellHeight) || data.cellHeight <= 0 ||
       !Number.isFinite(data.fontSize) || data.fontSize <= 0 ||
@@ -20,6 +33,15 @@ const player = `(function (global) {
       !Number.isFinite(data.duration) || data.duration <= 0 || data.duration >= 15 ||
       !Array.isArray(data.frames) || data.frames.length < 1 || data.frames.length > 450 ||
       data.columns * data.rows * data.frames.length > 7200000) fail();
+    const cellsPerFrame = data.columns * data.rows;
+    const cells = cellsPerFrame * data.frames.length;
+    const hasSourceColors = data.frames.some((frame) => frame && frame.colors !== undefined);
+    const estimatedJsonBytes = 2000 + data.frames.length * (200 + data.rows * 6) +
+      cells * (hasSourceColors ? 8 : 2);
+    const estimatedDecodedBytes = cells * (hasSourceColors ? 14 : 2) +
+      data.frames.length * (data.rows * 32 + 256);
+    if (cellsPerFrame > 28000 || estimatedJsonBytes > 5000000 ||
+      estimatedDecodedBytes > 32000000) fail();
     let previous = -1;
     for (const frame of data.frames) {
       if (!frame || !Number.isFinite(frame.timestamp) || frame.timestamp < 0 ||
@@ -51,7 +73,7 @@ const player = `(function (global) {
     const loop = doc.createElement('input');
     wrapper.style.cssText = 'width:100%;';
     output.setAttribute('aria-label', options.label || 'ASCII video frame');
-    output.style.cssText = 'box-sizing:border-box;margin:0;overflow:hidden;white-space:pre;aspect-ratio:' + data.width + '/' + data.height + ';font-family:monospace;font-size:' + data.fontSize + 'px;line-height:' + data.cellHeight + 'px;letter-spacing:0;padding:0;';
+    output.style.cssText = 'box-sizing:border-box;margin:0;overflow:hidden;white-space:pre;aspect-ratio:' + data.width + '/' + data.height + ';font-family:monospace;font-size:' + data.fontSize + 'px;line-height:' + data.cellHeight + 'px;letter-spacing:0;padding:0;color:' + data.foreground + ';background-color:' + data.background + ';';
     controls.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin-top:.5rem;';
     button.type = 'button';
     button.textContent = 'Play';
@@ -210,7 +232,29 @@ function crc32(bytes: Uint8Array) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-export function createZip(files: BundleFile[]) {
+async function deflateRaw(bytes: Uint8Array) {
+  if (typeof CompressionStream !== 'function')
+    throw new Error(
+      'This browser cannot create compressed ASCII code bundles. Use a current desktop Chrome or Edge browser.',
+    );
+  const copy = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  let stream: ReadableStream<Uint8Array>;
+  try {
+    stream = new Blob([copy])
+      .stream()
+      .pipeThrough(new CompressionStream('deflate-raw'));
+  } catch {
+    throw new Error(
+      'This browser cannot create compressed ASCII code bundles. Use a current desktop Chrome or Edge browser.',
+    );
+  }
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+export async function createZip(files: BundleFile[]) {
   const encoder = new TextEncoder();
   const localParts: Uint8Array[] = [];
   const centralParts: Uint8Array[] = [];
@@ -218,18 +262,20 @@ export function createZip(files: BundleFile[]) {
   for (const file of files) {
     const name = encoder.encode(file.name);
     const content = encoder.encode(file.content);
+    const compressed = await deflateRaw(content);
     const crc = crc32(content);
     const local = new Uint8Array(30 + name.length);
     const localView = new DataView(local.buffer);
     localView.setUint32(0, 0x04034b50, true);
     localView.setUint16(4, 20, true);
     localView.setUint16(6, 0x0800, true);
+    localView.setUint16(8, 8, true);
     localView.setUint32(14, crc, true);
-    localView.setUint32(18, content.length, true);
+    localView.setUint32(18, compressed.length, true);
     localView.setUint32(22, content.length, true);
     localView.setUint16(26, name.length, true);
     local.set(name, 30);
-    localParts.push(local, content);
+    localParts.push(local, compressed);
 
     const central = new Uint8Array(46 + name.length);
     const view = new DataView(central.buffer);
@@ -237,14 +283,15 @@ export function createZip(files: BundleFile[]) {
     view.setUint16(4, 20, true);
     view.setUint16(6, 20, true);
     view.setUint16(8, 0x0800, true);
+    view.setUint16(10, 8, true);
     view.setUint32(16, crc, true);
-    view.setUint32(20, content.length, true);
+    view.setUint32(20, compressed.length, true);
     view.setUint32(24, content.length, true);
     view.setUint16(28, name.length, true);
     view.setUint32(42, offset, true);
     central.set(name, 46);
     centralParts.push(central);
-    offset += local.length + content.length;
+    offset += local.length + compressed.length;
   }
   const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
   const end = new Uint8Array(22);

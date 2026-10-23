@@ -10,7 +10,12 @@ import {
   ALL_FORMATS,
 } from 'mediabunny';
 import type { CharacterPreset, Treatment } from './treatment';
-import { createExampleHtml, createZip, playerJavaScript } from './codeBundle';
+import {
+  codeBundleLimits,
+  createExampleHtml,
+  createZip,
+  playerJavaScript,
+} from './codeBundle';
 
 type Request =
   | {
@@ -20,6 +25,7 @@ type Request =
       testExportDelay?: number;
       testCodeBundleFailure?: boolean;
       testCodeBundleDelay?: number;
+      testCodeBundleLimitAfterFrames?: number;
     }
   | {
       type: 'preview';
@@ -71,9 +77,22 @@ let testExportDelay = 0;
 let testExportFailure = false;
 let testCodeBundleDelay = 0;
 let testCodeBundleFailure = false;
+let testCodeBundleLimitAfterFrames = 0;
+let didTestCodeBundleLimitFailure = false;
 let didTestCodeBundleFail = false;
 let activeCodeBundleId: number | undefined;
 let canceledCodeBundleId: number | undefined;
+let activeCodeBundleFrames:
+  | Array<{
+      timestamp: number;
+      duration: number;
+      rows: string[];
+      colors?: string[];
+    }>
+  | undefined;
+
+const oversizedCodeBundleMessage =
+  'This ASCII bundle exceeds the safe export limits. Lower Density in the editor and generate it again; duration, frame rate, and color fidelity are never reduced automatically.';
 
 function yieldToWorkerMessages() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -443,6 +462,10 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
   canceledCodeBundleId = undefined;
   const isCanceled = () => canceledCodeBundleId === operationId;
   const finishCanceled = () => {
+    if (activeCodeBundleId === operationId) {
+      if (activeCodeBundleFrames) activeCodeBundleFrames.length = 0;
+      activeCodeBundleFrames = undefined;
+    }
     if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
     scope.postMessage({ type: 'code-bundle-canceled', operationId });
   };
@@ -460,15 +483,25 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
   const frameRate = Math.min(30, sourceFrameRate);
   const step = 1 / frameRate;
   const frameCount = Math.ceil(duration * frameRate);
-  if (frameCount > 450 || columns * rows * frameCount > 7_200_000)
-    throw new Error('This ASCII bundle would exceed the safe data limit.');
-  const cells = columns * rows * frameCount;
-  const estimatedDataCharacters =
-    2_000 +
-    frameCount * (160 + rows * 6) +
-    cells * (treatment.sourceColor ? 7 : 1);
-  if (estimatedDataCharacters > 5_000_000)
-    throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
+  const cellsPerFrame = columns * rows;
+  const cells = cellsPerFrame * frameCount;
+  // JSON escaping can double the character payload; RGB cells add six hex
+  // digits. The decoded-data estimate accounts for UTF-16 strings and row /
+  // frame arrays retained while the package is assembled.
+  const jsonBytesPerCell = treatment.sourceColor ? 8 : 2;
+  const decodedBytesPerCell = treatment.sourceColor ? 14 : 2;
+  const estimatedJsonBytes =
+    2_000 + frameCount * (200 + rows * 6) + cells * jsonBytesPerCell;
+  const estimatedDecodedBytes =
+    cells * decodedBytesPerCell + frameCount * (rows * 32 + 256);
+  if (
+    frameCount > codeBundleLimits.maxFrames ||
+    cellsPerFrame > codeBundleLimits.maxCellsPerFrame ||
+    cells > codeBundleLimits.maxTotalCells ||
+    estimatedJsonBytes > codeBundleLimits.maxJsonBytes ||
+    estimatedDecodedBytes > codeBundleLimits.maxDecodedFrameDataBytes
+  )
+    throw new Error(oversizedCodeBundleMessage);
   const firstTimestamp = await track.getFirstTimestamp();
   const frames: Array<{
     timestamp: number;
@@ -476,7 +509,10 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     rows: string[];
     colors?: string[];
   }> = [];
-  let estimatedCharactersUsed = 2_000 + frameCount * 160;
+  activeCodeBundleFrames = frames;
+  let estimatedJsonBytesUsed = 2_000 + frameCount * 200;
+  let generatedCells = 0;
+  let estimatedDecodedBytesUsed = 0;
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
     if (isCanceled()) {
       finishCanceled();
@@ -484,10 +520,19 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     }
     const timestamp = frameIndex * step;
     if (timestamp >= duration) break;
-    const frameEstimate =
-      columns * rows * (treatment.sourceColor ? 7 : 1) + rows * 6;
-    if (estimatedCharactersUsed + frameEstimate > 5_000_000)
-      throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
+    const frameCells = columns * rows;
+    const frameJsonEstimate = frameCells * jsonBytesPerCell + rows * 6 + 200;
+    const frameDecodedEstimate =
+      frameCells * decodedBytesPerCell + rows * 32 + 256;
+    if (
+      frameCells > codeBundleLimits.maxCellsPerFrame ||
+      generatedCells + frameCells > codeBundleLimits.maxTotalCells ||
+      estimatedJsonBytesUsed + frameJsonEstimate >
+        codeBundleLimits.maxJsonBytes ||
+      estimatedDecodedBytesUsed + frameDecodedEstimate >
+        codeBundleLimits.maxDecodedFrameDataBytes
+    )
+      throw new Error(oversizedCodeBundleMessage);
     const sample = await sink.getSample(firstTimestamp + timestamp);
     if (!sample)
       throw new Error(
@@ -501,7 +546,9 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
         rows: grid.rows,
         ...(grid.colors ? { colors: grid.colors } : {}),
       });
-      estimatedCharactersUsed += frameEstimate;
+      generatedCells += frameCells;
+      estimatedJsonBytesUsed += frameJsonEstimate;
+      estimatedDecodedBytesUsed += frameDecodedEstimate;
     } finally {
       sample.close();
     }
@@ -515,6 +562,15 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     if (testCodeBundleFailure && !didTestCodeBundleFail && frameIndex === 1) {
       didTestCodeBundleFail = true;
       throw new Error('Controlled ASCII bundle failure for recovery testing.');
+    }
+    if (
+      testCodeBundleLimitAfterFrames > 0 &&
+      !didTestCodeBundleLimitFailure &&
+      frameIndex + 1 >= testCodeBundleLimitAfterFrames
+    ) {
+      didTestCodeBundleLimitFailure = true;
+      frames.length = 0;
+      throw new Error(oversizedCodeBundleMessage);
     }
     if (testCodeBundleDelay > 0)
       await new Promise<void>((resolve) =>
@@ -541,18 +597,32 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     frames,
   };
   const dataJson = JSON.stringify(data);
-  if (dataJson.length > 5_000_000)
-    throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
+  if (
+    new TextEncoder().encode(dataJson).byteLength >
+    codeBundleLimits.maxJsonBytes
+  )
+    throw new Error(oversizedCodeBundleMessage);
   const readme =
-    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline, starts paused, and includes labeled Play/Pause and Loop controls.\n\nFiles: index.html is the runnable example; player.js is the reusable public player; data.json contains versioned row-major character frames. The player has no editor, source-video, build-tool, runtime-library, or external-font dependency.\n\nSeparate application setup: copy player.js and data.json into your app, load player.js with a script tag, fetch or import data.json, find a container element, then call AsciiVideoPlayer.mount({container, data}). mount creates its own frame and labeled controls, so the bundled example markup is not required. The returned instance provides play(), pause(), seek(seconds), setLoop(enabled), getCurrentTime(), element, and dispose(). seek accepts seconds from 0 through the recorded duration; at the duration boundary it displays the final frame. setLoop controls whether playback wraps at the recorded duration. options.loop defaults to true.\n\nSizing: the frame scales down to fit the container width while preserving source aspect ratio and cell proportions. It never enlarges beyond its generated dimensions. Resizing changes presentation size; data rows, columns, and logical cell geometry remain unchanged.\n\nAutoplay is off by default. To opt in, pass autoplay: true; the player suppresses this unsolicited playback when prefers-reduced-motion is reduce. The user can still start deliberate playback. dispose() stops its animation frame, disconnects its resize observer, removes its event listener, and removes the mounted player element. Call it when removing the player.\n\nData compatibility: version 1 supports fixed-color frames (rows only, using foreground) and source-color frames (rows plus six-digit RGB colors per cell). The background color is independent in both modes. The output uses the browser monospace system font, so glyph shape and spacing can differ across systems.\n';
-  const zip = createZip([
-    { name: 'index.html', content: createExampleHtml(data) },
+    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline, starts paused, and includes labeled Play/Pause and Loop controls.\n\nFiles: index.html is the runnable example; player.js is the reusable public player; data.json contains versioned row-major character frames. The player has no editor, source-video, build-tool, runtime-library, or external-font dependency.\n\nSeparate application setup: copy player.js and data.json into your app, load player.js with a script tag, fetch or import data.json, find a container element, then call AsciiVideoPlayer.mount({container, data}). mount creates its own frame and labeled controls, so the bundled example markup is not required. The returned instance provides play(), pause(), seek(seconds), setLoop(enabled), getCurrentTime(), element, and dispose(). seek accepts seconds from 0 through the recorded duration; at the duration boundary it displays the final frame. setLoop controls whether playback wraps at the recorded duration. options.loop defaults to true.\n\nSizing: the frame scales down to fit the container width while preserving source aspect ratio and cell proportions. It never enlarges beyond its generated dimensions. Resizing changes presentation size; data rows, columns, and logical cell geometry remain unchanged.\n\nAutoplay is off by default. To opt in, pass autoplay: true; the player suppresses this unsolicited playback when prefers-reduced-motion is reduce. The user can still start deliberate playback. dispose() stops its animation frame, disconnects its resize observer, removes its event listener, and removes the mounted player element. Call it when removing the player.\n\nData compatibility: version 1 supports fixed-color frames (rows only, using foreground) and source-color frames (rows plus six-digit RGB colors per cell). The background color is independent in both modes. The output uses the browser monospace system font, so glyph shape and spacing can differ across systems.\n\nLimits: at most 28,000 cells in one frame, 7,200,000 cells total, 450 frames, 5,000,000 bytes of data.json, a 32,000,000-byte decoded-data estimate, and a 12,000,000-byte ZIP. Oversized work is rejected with lower-Density guidance; the generator never changes Density, cadence, duration, or color fidelity automatically.\n\nCapability separation: code generation requires supported H.264 decoding and raw DEFLATE ZIP support. It does not require H.264 MP4 encoding. The source video is not included in this archive.\n';
+  const indexHtml = createExampleHtml(data);
+  // All generated content is ASCII. String length is therefore a safe
+  // preflight upper bound on UTF-8 bytes before ZIP buffers are allocated.
+  const estimatedBundleBytes =
+    indexHtml.length +
+    dataJson.length +
+    playerJavaScript.length +
+    readme.length +
+    512;
+  if (estimatedBundleBytes > codeBundleLimits.maxBundleBytes)
+    throw new Error(oversizedCodeBundleMessage);
+  const zip = await createZip([
+    { name: 'index.html', content: indexHtml },
     { name: 'player.js', content: playerJavaScript },
     { name: 'data.json', content: dataJson },
     { name: 'README.txt', content: readme },
   ]);
-  if (zip.size > 12_000_000)
-    throw new Error('This ASCII bundle would exceed the 12 MB bundle limit.');
+  if (zip.size > codeBundleLimits.maxBundleBytes)
+    throw new Error(oversizedCodeBundleMessage);
   if (isCanceled()) {
     finishCanceled();
     return;
@@ -563,6 +633,7 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     return;
   }
   scope.postMessage({ type: 'code-bundle-done', operationId, bytes }, [bytes]);
+  if (activeCodeBundleId === operationId) activeCodeBundleFrames = undefined;
   if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
 }
 
@@ -592,6 +663,9 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       : 0;
     testCodeBundleFailure =
       import.meta.env.DEV && request.testCodeBundleFailure === true;
+    testCodeBundleLimitAfterFrames = import.meta.env.DEV
+      ? Math.max(0, Math.floor(request.testCodeBundleLimitAfterFrames ?? 0))
+      : 0;
   }
   if (request.type === 'cancel-export') {
     exportCanceled = true;
@@ -622,6 +696,8 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     if (request.type === 'code-bundle') {
       if (activeCodeBundleId === request.operationId)
         activeCodeBundleId = undefined;
+      if (activeCodeBundleFrames) activeCodeBundleFrames.length = 0;
+      activeCodeBundleFrames = undefined;
       if (canceledCodeBundleId === request.operationId) return;
     }
     if (request.type === 'load') {

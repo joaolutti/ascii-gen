@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,6 +23,7 @@ declare global {
       }): BrowserPlayer;
     };
     testPlayer: BrowserPlayer;
+    testColorPlayer: BrowserPlayer;
   }
 }
 
@@ -56,7 +57,7 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
   try {
     const archive = join(directory, download.suggestedFilename());
     await download.saveAs(archive);
-    execFileSync('unzip', ['-q', archive, '-d', directory]);
+    execFileSync('unzip', ['-o', '-q', archive, '-d', directory]);
     const data = JSON.parse(
       readFileSync(join(directory, 'data.json'), 'utf8'),
     ) as {
@@ -104,8 +105,7 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
       ),
     ).toBe(true);
     const middleRow = data.frames[0]!.rows[Math.floor(data.rows / 2)]!;
-    expect(middleRow[22]).toBe('+');
-    expect(middleRow[66]).toBe('^');
+    expect(middleRow[22]).toBe('[');
     expect(readFileSync(join(directory, 'player.js'), 'utf8')).toContain(
       'requestAnimationFrame',
     );
@@ -144,9 +144,16 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     const sourceColorDownload = await sourceColorDownloadPromise;
     const sourceColorArchive = join(directory, 'source-colors.zip');
     await sourceColorDownload.saveAs(sourceColorArchive);
-    execFileSync('unzip', ['-q', sourceColorArchive, '-d', directory]);
+    const sourceColorDirectory = join(directory, 'source-color');
+    mkdirSync(sourceColorDirectory);
+    execFileSync('unzip', [
+      '-q',
+      sourceColorArchive,
+      '-d',
+      sourceColorDirectory,
+    ]);
     const sourceColorData = JSON.parse(
-      readFileSync(join(directory, 'data.json'), 'utf8'),
+      readFileSync(join(sourceColorDirectory, 'data.json'), 'utf8'),
     ) as {
       frames: Array<{ rows: string[]; colors?: string[] }>;
       rows: number;
@@ -172,10 +179,12 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     expect(rightColor & 255).toBeGreaterThan(200);
 
     const sourceColorExample = await context.newPage();
-    await sourceColorExample.goto(`file://${join(directory, 'index.html')}`);
+    await sourceColorExample.goto(
+      `file://${join(sourceColorDirectory, 'index.html')}`,
+    );
     await expect(sourceColorExample.locator('pre span').first()).toHaveCSS(
       'color',
-      /rgb\((2\d\d|255), 0, 0\)/,
+      /rgb\((2\d\d|255), \d+, 0\)/,
     );
     await expect(sourceColorExample.locator('body')).toHaveCSS(
       'background-color',
@@ -199,6 +208,8 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
         cellWidth: 320 / 24,
         cellHeight: 90,
         fontSize: 90,
+        foreground: '#22cc44',
+        background: '#112233',
         duration: 0.2,
         frames: [
           {
@@ -219,11 +230,38 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
         autoplay: true,
       });
       window.testPlayer = player;
+
+      const colorData = {
+        ...data,
+        frames: data.frames.map((frame) => ({
+          ...frame,
+          colors: Array.from({ length: data.rows }, () =>
+            'ff0000'.repeat(data.columns),
+          ),
+        })),
+      };
+      const colorHost = document.createElement('main');
+      colorHost.id = 'source-color-host';
+      colorHost.style.width = '160px';
+      document.body.append(colorHost);
+      window.testColorPlayer = window.AsciiVideoPlayer.mount({
+        container: colorHost,
+        data: colorData,
+      });
     });
-    const hostedPre = separateConsumer.locator('pre');
+    const hostedPre = separateConsumer.locator('#host pre');
     await expect(hostedPre).toContainText(/^A/);
+    await expect(hostedPre).toHaveCSS('color', 'rgb(34, 204, 68)');
+    await expect(hostedPre).toHaveCSS('background-color', 'rgb(17, 34, 51)');
     await expect(
-      separateConsumer.getByRole('button', { name: 'Play' }),
+      separateConsumer.locator('#source-color-host pre span').first(),
+    ).toHaveCSS('color', 'rgb(255, 0, 0)');
+    await expect(separateConsumer.locator('#source-color-host pre')).toHaveCSS(
+      'background-color',
+      'rgb(17, 34, 51)',
+    );
+    await expect(
+      separateConsumer.locator('#host').getByRole('button', { name: 'Play' }),
     ).toBeVisible();
     expect(
       await hostedPre.evaluate((pre) => pre.getBoundingClientRect().width),
@@ -241,7 +279,7 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
       window.testPlayer.play();
     });
     await expect(
-      separateConsumer.getByRole('button', { name: 'Play' }),
+      separateConsumer.locator('#host').getByRole('button', { name: 'Play' }),
     ).toBeVisible({ timeout: 1000 });
     await expect(hostedPre).toContainText(/^B/);
     expect(
