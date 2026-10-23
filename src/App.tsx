@@ -23,6 +23,7 @@ type WorkerReply =
     }
   | { type: 'done'; bytes: ArrayBuffer }
   | { type: 'canceled' }
+  | { type: 'disposed' }
   | { type: 'error'; message: string };
 
 type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
@@ -66,10 +67,16 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      workerRef.current?.postMessage({ type: 'dispose' });
-      workerRef.current?.terminate();
+      releaseWorker(workerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setDownloadUrl((url) => {
+      if (url) URL.revokeObjectURL(url);
+      return '';
+    });
+  }, [treatment]);
 
   useEffect(
     () => () => {
@@ -104,7 +111,7 @@ export default function App() {
 
   const chooseFile = (file?: File) => {
     if (!file || exporting) return;
-    workerRef.current?.terminate();
+    releaseWorker(workerRef.current);
     workerRef.current = null;
     previewSequenceRef.current = 0;
     setDownloadUrl((url) => {
@@ -139,6 +146,7 @@ export default function App() {
       const reply = event.data;
       if (workerRef.current !== worker) {
         if (reply.type === 'preview') reply.bitmap.close();
+        if (reply.type === 'disposed') worker.terminate();
         return;
       }
       if (reply.type === 'preview') {
@@ -230,6 +238,8 @@ export default function App() {
   const cancelExport = () => {
     workerRef.current?.postMessage({ type: 'cancel-export' });
   };
+
+  const resetControls = () => setTreatment(defaultTreatment);
 
   return (
     <main className={styles.page}>
@@ -467,6 +477,14 @@ export default function App() {
             Brightness still selects the character.
           </p>
           <button
+            type="button"
+            className={styles.reset}
+            disabled={exporting}
+            onClick={resetControls}
+          >
+            Reset controls
+          </button>
+          <button
             className={styles.export}
             disabled={!canExport || exporting}
             onClick={exportVideo}
@@ -502,4 +520,17 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+function releaseWorker(worker: Worker | null) {
+  if (!worker) return;
+  const timeout = window.setTimeout(() => worker.terminate(), 1_000);
+  worker.onmessage = (event: MessageEvent<WorkerReply>) => {
+    if (event.data.type === 'preview') event.data.bitmap.close();
+    if (event.data.type === 'disposed') {
+      window.clearTimeout(timeout);
+      worker.terminate();
+    }
+  };
+  worker.postMessage({ type: 'dispose' });
 }

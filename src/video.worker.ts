@@ -377,6 +377,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     file = undefined;
     canvas = undefined;
     pendingPreview = undefined;
+    scope.postMessage({ type: 'disposed' });
     return;
   }
   if (request.type === 'load') {

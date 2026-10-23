@@ -204,6 +204,24 @@
   font-weight: 600;
   cursor: pointer;
 }
+.reset {
+  width: 100%;
+  margin-top: 18px;
+  height: 38px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: transparent;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+}
+.reset:hover:not(:disabled) {
+  border-color: #aaa;
+}
+.reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .export:disabled {
   opacity: 0.45;
   cursor: not-allowed;
