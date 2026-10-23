@@ -10,6 +10,7 @@ import {
   ALL_FORMATS,
 } from 'mediabunny';
 import type { CharacterPreset, Treatment } from './treatment';
+import { createExampleHtml, createZip, playerJavaScript } from './codeBundle';
 
 type Request =
   | {
@@ -25,6 +26,7 @@ type Request =
       treatment: Treatment;
     }
   | { type: 'export'; treatment: Treatment }
+  | { type: 'code-bundle'; treatment: Treatment }
   | { type: 'cancel-export' }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
@@ -89,6 +91,18 @@ function drawAscii(
   const rows = Math.max(1, Math.round(((cols * height) / width) * 0.55));
   const cellW = target.width / cols;
   const cellH = target.height / rows;
+  if (!treatment.sourceColor) {
+    context.fillStyle = treatment.background;
+    context.fillRect(0, 0, target.width, target.height);
+    context.fillStyle = treatment.foreground;
+    context.font = `${cellH}px monospace`;
+    context.textBaseline = 'top';
+    const lines = extractCharacterRows(sample, treatment);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++)
+        context.fillText(lines[y]![x]!, x * cellW, y * cellH);
+    return;
+  }
   const source = new OffscreenCanvas(cols, rows);
   const sourceContext = source.getContext('2d', { willReadFrequently: true });
   if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
@@ -124,6 +138,44 @@ function drawAscii(
         : treatment.foreground;
       context.fillText(char, x * cellW, y * cellH);
     }
+}
+
+function extractCharacterRows(
+  sample: Parameters<typeof drawAscii>[0],
+  treatment: Treatment,
+) {
+  const columns = treatment.density;
+  const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
+  const source = new OffscreenCanvas(columns, rows);
+  const sourceContext = source.getContext('2d', { willReadFrequently: true });
+  if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
+  sample.draw(sourceContext, 0, 0, columns, rows);
+  const pixels = sourceContext.getImageData(0, 0, columns, rows).data;
+  const ramp = ramps[treatment.preset];
+  const output: string[] = [];
+  for (let y = 0; y < rows; y++) {
+    let line = '';
+    for (let x = 0; x < columns; x++) {
+      const offset = (y * columns + x) * 4;
+      let brightness =
+        (pixels[offset] * 0.2126 +
+          pixels[offset + 1] * 0.7152 +
+          pixels[offset + 2] * 0.0722) /
+        255;
+      brightness =
+        (brightness - 0.5) * (treatment.contrast / 100) +
+        0.5 +
+        treatment.brightness / 100;
+      brightness = Math.max(0, Math.min(1, brightness));
+      if (treatment.inverted) brightness = 1 - brightness;
+      line +=
+        treatment.preset === 'Binary' && brightness < 0.18
+          ? ' '
+          : ramp[Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))];
+    }
+    output.push(line);
+  }
+  return output;
 }
 
 function outputDimensions(sourceWidth: number, sourceHeight: number) {
@@ -355,6 +407,77 @@ async function exportMp4(treatment: Treatment) {
   }
 }
 
+async function exportCodeBundle(treatment: Treatment) {
+  if (!file || !track || !sink || !canvas)
+    throw new Error('Choose a source video first.');
+  if (
+    !/^#[\da-f]{6}$/i.test(treatment.foreground) ||
+    !/^#[\da-f]{6}$/i.test(treatment.background)
+  )
+    throw new Error('Choose valid foreground and background colors.');
+  if (treatment.sourceColor)
+    throw new Error('ASCII code bundles currently support fixed colors.');
+  const columns = treatment.density;
+  const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
+  const cellWidth = canvas.width / columns;
+  const cellHeight = canvas.height / rows;
+  const frameRate = Math.min(30, sourceFrameRate);
+  const step = 1 / frameRate;
+  const frameCount = Math.ceil(duration * frameRate);
+  if (frameCount > 450 || columns * rows * frameCount > 7_200_000)
+    throw new Error('This ASCII bundle would exceed the safe data limit.');
+  const firstTimestamp = await track.getFirstTimestamp();
+  const frames: Array<{ timestamp: number; duration: number; rows: string[] }> = [];
+  for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+    const timestamp = frameIndex * step;
+    if (timestamp >= duration) break;
+    const sample = await sink.getSample(firstTimestamp + timestamp);
+    if (!sample)
+      throw new Error(
+        `Could not decode the frame at ${timestamp.toFixed(3)} seconds.`,
+      );
+    try {
+      frames.push({
+        timestamp,
+        duration: Math.min(step, duration - timestamp),
+        rows: extractCharacterRows(sample, treatment),
+      });
+    } finally {
+      sample.close();
+    }
+    await yieldToWorkerMessages();
+  }
+  const data = {
+    version: 1,
+    width: canvas.width,
+    height: canvas.height,
+    columns,
+    rows,
+    cellWidth,
+    cellHeight,
+    fontSize: cellHeight,
+    foreground: treatment.foreground,
+    background: treatment.background,
+    duration,
+    frames,
+  };
+  const dataJson = JSON.stringify(data);
+  if (dataJson.length > 5_000_000)
+    throw new Error('This ASCII bundle would exceed the 5 MB data limit.');
+  const readme =
+    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline and starts paused. Use Play/Pause and the Loop checkbox to control playback.\n\nFiles: index.html is the self-contained example; player.js is reusable player code; data.json contains versioned row-major character frames. To reuse player.js, provide a pre element, a button, a checkbox, and a script element with id ascii-data containing the data JSON, then include player.js.\n';
+  const zip = createZip([
+    { name: 'index.html', content: createExampleHtml(data) },
+    { name: 'player.js', content: playerJavaScript },
+    { name: 'data.json', content: dataJson },
+    { name: 'README.txt', content: readme },
+  ]);
+  if (zip.size > 12_000_000)
+    throw new Error('This ASCII bundle would exceed the 12 MB bundle limit.');
+  const bytes = await zip.arrayBuffer();
+  scope.postMessage({ type: 'code-bundle-done', bytes }, [bytes]);
+}
+
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
@@ -391,6 +514,8 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       ? load(request.file)
       : request.type === 'export'
         ? exportMp4(request.treatment)
+        : request.type === 'code-bundle'
+          ? exportCodeBundle(request.treatment)
         : Promise.resolve();
   task.catch((error: unknown) => {
     if (request.type === 'load') {
