@@ -1,7 +1,42 @@
 export type BundleFile = { name: string; content: string };
 
 const player = `(() => {
-  const data = JSON.parse(document.getElementById('ascii-data').textContent);
+  const payload = document.getElementById('ascii-data');
+  const source = payload && payload.textContent;
+  if (!source || source.length > 5000000)
+    throw new Error('Invalid or oversized ASCII data.');
+  const data = JSON.parse(source);
+  const fail = () => { throw new Error('Unsupported or corrupt ASCII data.'); };
+  if (
+    !data || data.version !== 1 ||
+    !Number.isInteger(data.width) || data.width < 1 || data.width > 1280 ||
+    !Number.isInteger(data.height) || data.height < 1 || data.height > 1280 ||
+    !Number.isInteger(data.columns) || data.columns < 1 || data.columns > 160 ||
+    !Number.isInteger(data.rows) || data.rows < 1 || data.rows > 1200 ||
+    data.columns * data.rows > 288000 ||
+    !Number.isFinite(data.cellWidth) || data.cellWidth <= 0 ||
+    !Number.isFinite(data.cellHeight) || data.cellHeight <= 0 ||
+    !Number.isFinite(data.fontSize) || data.fontSize <= 0 ||
+    !Number.isFinite(data.duration) || data.duration <= 0 || data.duration >= 15 ||
+    !Array.isArray(data.frames) || data.frames.length < 1 || data.frames.length > 450 ||
+    data.columns * data.rows * data.frames.length > 7200000
+  ) fail();
+  let previousTimestamp = -1;
+  for (const frame of data.frames) {
+    if (
+      !Number.isFinite(frame.timestamp) || frame.timestamp < 0 ||
+      frame.timestamp <= previousTimestamp || frame.timestamp >= data.duration ||
+      !Number.isFinite(frame.duration) || frame.duration <= 0 ||
+      !Array.isArray(frame.rows) || frame.rows.length !== data.rows ||
+      frame.rows.some((row) => typeof row !== 'string' || row.length !== data.columns)
+    ) fail();
+    previousTimestamp = frame.timestamp;
+    if (frame.colors !== undefined && (
+      !Array.isArray(frame.colors) || frame.colors.length !== data.rows ||
+      frame.colors.some((row) => typeof row !== 'string' ||
+        row.length !== data.columns * 6 || !/^(?:[a-f0-9]{6})+$/i.test(row))
+    )) fail();
+  }
   const output = document.querySelector('pre');
   const button = document.querySelector('button');
   const loop = document.querySelector('input[type=checkbox]');
@@ -11,7 +46,22 @@ const player = `(() => {
   let frameIndex = 0;
   const show = (index) => {
     frameIndex = index;
-    output.textContent = data.frames[index].rows.join('\\n');
+    const frame = data.frames[index];
+    if (!frame.colors) {
+      output.textContent = frame.rows.join('\\n');
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    for (let y = 0; y < data.rows; y++) {
+      for (let x = 0; x < data.columns; x++) {
+        const character = document.createElement('span');
+        character.style.color = '#' + frame.colors[y].slice(x * 6, x * 6 + 6);
+        character.textContent = frame.rows[y][x];
+        fragment.append(character);
+      }
+      if (y + 1 < data.rows) fragment.append(document.createTextNode('\\n'));
+    }
+    output.replaceChildren(fragment);
   };
   const tick = (now) => {
     if (!playing) return;
@@ -81,14 +131,12 @@ export function createExampleHtml(data: unknown) {
 const crcTable = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
   let c = n;
-  for (let k = 0; k < 8; k++)
-    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
   crcTable[n] = c >>> 0;
 }
 function crc32(bytes: Uint8Array) {
   let crc = 0xffffffff;
-  for (const byte of bytes)
-    crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
   return (crc ^ 0xffffffff) >>> 0;
 }
 
