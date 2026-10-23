@@ -15,6 +15,7 @@ type Request =
   | {
       type: 'load';
       file: File;
+      treatment: Treatment;
       testExportFailure?: boolean;
       testExportDelay?: number;
     }
@@ -24,8 +25,8 @@ type Request =
       sequence: number;
       treatment: Treatment;
     }
-  | { type: 'export'; treatment: Treatment }
-  | { type: 'cancel-export' }
+  | { type: 'export'; treatment: Treatment; operationId: number }
+  | { type: 'cancel-export'; operationId: number }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
@@ -61,8 +62,9 @@ let latestPreviewSequence = 0;
 let pendingPreview:
   { timestamp: number; sequence: number; treatment: Treatment } | undefined;
 let processingPreview = false;
-let exportCanceled = false;
+let canceledExportId: number | undefined;
 let activeOutput: Output | undefined;
+let activeExportId: number | undefined;
 let didTestExportFail = false;
 
 let testExportDelay = 0;
@@ -228,7 +230,7 @@ function outputDimensions(sourceWidth: number, sourceHeight: number) {
   };
 }
 
-async function load(sourceFile: File) {
+async function load(sourceFile: File, treatment: Treatment) {
   if (sourceFile.size > 100_000_000)
     throw new Error(
       'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
@@ -295,7 +297,7 @@ async function load(sourceFile: File) {
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
-  drawFrame(sample, canvas, defaultTreatment);
+  drawFrame(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
@@ -354,6 +356,7 @@ async function processPreviewQueue() {
         if (request.sequence !== latestPreviewSequence) continue;
         scope.postMessage({
           type: 'error',
+          sequence: request.sequence,
           message:
             error instanceof Error
               ? error.message
@@ -367,13 +370,14 @@ async function processPreviewQueue() {
   }
 }
 
-async function exportMp4(treatment: Treatment) {
+async function exportMp4(treatment: Treatment, operationId: number) {
   if (!file || !input || !track || !sink || !canvas)
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
   activeOutput = output;
-  exportCanceled = false;
+  activeExportId = operationId;
+  canceledExportId = undefined;
   const exportCanvas = new OffscreenCanvas(canvas.width, canvas.height);
   const source = new CanvasSource(exportCanvas, {
     codec: 'avc',
@@ -388,11 +392,11 @@ async function exportMp4(treatment: Treatment) {
   const frameCount = Math.ceil(duration * frameRate);
   try {
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-      if (exportCanceled) return;
+      if (canceledExportId === operationId) return;
       const timestamp = frameIndex * step;
       if (timestamp >= duration) break;
       const sample = await sink.getSample(firstTimestamp + timestamp);
-      if (exportCanceled) {
+      if (canceledExportId === operationId) {
         sample?.close();
         return;
       }
@@ -409,6 +413,7 @@ async function exportMp4(treatment: Treatment) {
       count++;
       scope.postMessage({
         type: 'progress',
+        operationId,
         value: Math.min(0.99, count / frameCount),
         completedFrames: count,
         totalFrames: frameCount,
@@ -423,14 +428,16 @@ async function exportMp4(treatment: Treatment) {
         );
       else await yieldToWorkerMessages();
     }
-    if (exportCanceled) return;
+    if (canceledExportId === operationId) return;
     source.close();
     await output.finalize();
-    if (exportCanceled) return;
+    if (canceledExportId === operationId) return;
     if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
-    scope.postMessage({ type: 'done', bytes: target.buffer }, [target.buffer]);
+    scope.postMessage({ type: 'done', operationId, bytes: target.buffer }, [
+      target.buffer,
+    ]);
   } catch (error) {
-    if (exportCanceled) return;
+    if (canceledExportId === operationId) return;
     if (output.state !== 'finalized' && output.state !== 'canceled') {
       await output.cancel();
     }
@@ -438,9 +445,10 @@ async function exportMp4(treatment: Treatment) {
   } finally {
     source.close();
     if (activeOutput === output) activeOutput = undefined;
-    if (exportCanceled) {
-      exportCanceled = false;
-      scope.postMessage({ type: 'canceled' });
+    if (activeExportId === operationId) activeExportId = undefined;
+    if (canceledExportId === operationId) {
+      canceledExportId = undefined;
+      scope.postMessage({ type: 'canceled', operationId });
     }
   }
 }
@@ -448,7 +456,7 @@ async function exportMp4(treatment: Treatment) {
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
-    exportCanceled = true;
+    canceledExportId = activeExportId;
     void activeOutput?.cancel();
     input?.dispose();
     input = undefined;
@@ -466,7 +474,8 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       import.meta.env.DEV && request.testExportFailure === true;
   }
   if (request.type === 'cancel-export') {
-    exportCanceled = true;
+    if (activeExportId !== request.operationId) return;
+    canceledExportId = request.operationId;
     void activeOutput?.cancel();
     return;
   }
@@ -476,11 +485,12 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     void processPreviewQueue();
     return;
   }
+  if (request.type === 'export' && activeExportId !== undefined) return;
   const task =
     request.type === 'load'
-      ? load(request.file)
+      ? load(request.file, request.treatment)
       : request.type === 'export'
-        ? exportMp4(request.treatment)
+        ? exportMp4(request.treatment, request.operationId)
         : Promise.resolve();
   task.catch((error: unknown) => {
     if (request.type === 'load') {
@@ -493,6 +503,9 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     }
     scope.postMessage({
       type: 'error',
+      ...(request.type === 'export'
+        ? { operationId: request.operationId }
+        : {}),
       message:
         error instanceof Error ? error.message : 'Video processing failed.',
     });

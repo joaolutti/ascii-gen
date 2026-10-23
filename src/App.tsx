@@ -18,14 +18,15 @@ type WorkerReply =
   | { type: 'ready'; width: number; height: number; duration: number }
   | {
       type: 'progress';
+      operationId: number;
       value: number;
       completedFrames: number;
       totalFrames: number;
     }
-  | { type: 'done'; bytes: ArrayBuffer }
-  | { type: 'canceled' }
+  | { type: 'done'; operationId: number; bytes: ArrayBuffer }
+  | { type: 'canceled'; operationId: number }
   | { type: 'disposed' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; operationId?: number; sequence?: number };
 
 const defaultAsciiTreatment: Treatment = {
   mode: 'ASCII',
@@ -51,7 +52,10 @@ const defaultPixelatedTreatment: Treatment = {
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
+  const pendingWorkerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
+  const exportOperationRef = useRef(0);
+  const activeExportRef = useRef<number | null>(null);
   const playbackTimeRef = useRef(0);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
@@ -68,6 +72,8 @@ export default function App() {
     Pixelated: defaultPixelatedTreatment,
   });
   const treatment = treatments[mode];
+  const treatmentRef = useRef(treatment);
+  treatmentRef.current = treatment;
   const setTreatment = (update: (current: Treatment) => Treatment) =>
     setTreatments((current) => ({
       ...current,
@@ -77,6 +83,7 @@ export default function App() {
   useEffect(() => {
     return () => {
       releaseWorker(workerRef.current);
+      releaseWorker(pendingWorkerRef.current);
     };
   }, []);
 
@@ -118,64 +125,113 @@ export default function App() {
     });
   }, [currentTime, duration, exporting, treatment]);
 
+  const handleWorkerMessage = (
+    worker: Worker,
+    event: MessageEvent<WorkerReply>,
+  ) => {
+    const reply = event.data;
+    if (workerRef.current !== worker) {
+      if (reply.type === 'preview') reply.bitmap.close();
+      if (reply.type === 'disposed') worker.terminate();
+      return;
+    }
+    if (reply.type === 'preview') {
+      if (reply.sequence !== previewSequenceRef.current) {
+        reply.bitmap.close();
+        return;
+      }
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = reply.bitmap.width;
+        canvas.height = reply.bitmap.height;
+        canvas.getContext('2d')?.drawImage(reply.bitmap, 0, 0);
+        reply.bitmap.close();
+      }
+    } else if (reply.type === 'progress') {
+      if (reply.operationId !== activeExportRef.current) return;
+      setProgress(reply.value);
+    } else if (reply.type === 'done') {
+      if (reply.operationId !== activeExportRef.current) return;
+      activeExportRef.current = null;
+      const url = URL.createObjectURL(
+        new Blob([reply.bytes], { type: 'video/mp4' }),
+      );
+      setDownloadUrl(url);
+      setExporting(false);
+      setMessage('Your silent MP4 is ready to download.');
+    } else if (reply.type === 'canceled') {
+      if (reply.operationId !== activeExportRef.current) return;
+      activeExportRef.current = null;
+      setExporting(false);
+      setProgress(0);
+      setMessage('Export canceled. Your source video and settings are ready.');
+    } else if (reply.type === 'error') {
+      if (reply.operationId !== undefined) {
+        if (reply.operationId !== activeExportRef.current) return;
+      } else {
+        if (
+          reply.sequence !== undefined &&
+          reply.sequence !== previewSequenceRef.current
+        )
+          return;
+        setMessage(`Preview failed: ${reply.message}`);
+        return;
+      }
+      activeExportRef.current = null;
+      setExporting(false);
+      setProgress(0);
+      setMessage(`Export failed: ${reply.message} You can try again.`);
+    }
+  };
+
   const chooseFile = (file?: File) => {
     if (!file || exporting) return;
-    releaseWorker(workerRef.current);
-    workerRef.current = null;
-    previewSequenceRef.current = 0;
-    setDownloadUrl((url) => {
-      if (url) URL.revokeObjectURL(url);
-      return '';
-    });
-    setName(file.name);
-    setCanExport(false);
-    setExporting(false);
-    setProgress(0);
-    setDuration(0);
-    setCurrentTime(0);
-    playbackTimeRef.current = 0;
-    setPlaying(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
     if (file.size > 100_000_000) {
       setMessage(
         'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
       );
       return;
     }
-    setMessage('Reading source video locally…');
+    const oldPendingWorker = pendingWorkerRef.current;
+    if (oldPendingWorker) releaseWorker(oldPendingWorker);
+    setMessage('Checking replacement video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
     });
-    workerRef.current = worker;
+    pendingWorkerRef.current = worker;
+    let initialPreview: ImageBitmap | undefined;
+    let ready = false;
+    const reject = (reason: string) => {
+      if (pendingWorkerRef.current !== worker) return;
+      pendingWorkerRef.current = null;
+      initialPreview?.close();
+      releaseWorker(worker);
+      setMessage(reason);
+    };
+    worker.onerror = () =>
+      reject(
+        'This file could not be read as a supported video. Choose an H.264 MP4.',
+      );
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const reply = event.data;
-      if (workerRef.current !== worker) {
+      if (pendingWorkerRef.current !== worker) {
         if (reply.type === 'preview') reply.bitmap.close();
-        if (reply.type === 'disposed') worker.terminate();
         return;
       }
       if (reply.type === 'preview') {
-        if (reply.sequence !== previewSequenceRef.current) {
-          reply.bitmap.close();
-          return;
-        }
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = reply.bitmap.width;
-          canvas.height = reply.bitmap.height;
-          canvas.getContext('2d')?.drawImage(reply.bitmap, 0, 0);
-          reply.bitmap.close();
-        }
-        setName(reply.name);
-      } else if (reply.type === 'ready') {
-        setDuration(reply.duration);
-        playbackTimeRef.current = 0;
-        setMessage('Checking H.264 MP4 export on this device…');
-        void (async () => {
+        initialPreview?.close();
+        initialPreview = reply.bitmap;
+        return;
+      }
+      if (reply.type === 'error') {
+        reject(reply.message);
+        return;
+      }
+      if (reply.type !== 'ready' || ready) return;
+      ready = true;
+      setMessage('Checking H.264 MP4 export on this device…');
+      void (async () => {
+        try {
           const supported =
             typeof VideoEncoder !== 'undefined' &&
             (
@@ -187,43 +243,59 @@ export default function App() {
                 framerate: 30,
               })
             ).supported === true;
-          if (workerRef.current !== worker) return;
-          setCanExport(supported);
-          setMessage(
-            supported
-              ? 'Classic characters · white on near-black'
-              : 'This browser cannot encode H.264 MP4 on this device.',
-          );
-        })().catch(() => {
-          if (workerRef.current !== worker) return;
-          setCanExport(false);
-          setMessage('This browser cannot encode H.264 MP4 on this device.');
-        });
-      } else if (reply.type === 'progress') {
-        setProgress(reply.value);
-      } else if (reply.type === 'done') {
-        const url = URL.createObjectURL(
-          new Blob([reply.bytes], { type: 'video/mp4' }),
-        );
-        setDownloadUrl(url);
-        setExporting(false);
-        setMessage('Your silent ASCII video is ready.');
-      } else if (reply.type === 'canceled') {
-        setExporting(false);
-        setProgress(0);
-        setMessage(
-          'Export canceled. Your source video and settings are ready.',
-        );
-      } else if (reply.type === 'error') {
-        setExporting(false);
-        setProgress(0);
-        setMessage(`Export failed: ${reply.message} You can try again.`);
-      }
+          if (pendingWorkerRef.current !== worker) return;
+          if (!supported) {
+            reject('This browser cannot encode H.264 MP4 on this device.');
+            return;
+          }
+          const previous = workerRef.current;
+          workerRef.current = worker;
+          pendingWorkerRef.current = null;
+          if (previous) releaseWorker(previous);
+          previewSequenceRef.current = 0;
+          setDownloadUrl((url) => {
+            if (url) URL.revokeObjectURL(url);
+            return '';
+          });
+          setName(file.name);
+          setCanExport(true);
+          setDuration(reply.duration);
+          setCurrentTime(0);
+          playbackTimeRef.current = 0;
+          setPlaying(false);
+          setProgress(0);
+          setMessage('Source video ready.');
+          const canvas = canvasRef.current;
+          const currentTreatment = treatmentRef.current;
+          if (canvas && initialPreview && currentTreatment === treatment) {
+            canvas.width = initialPreview.width;
+            canvas.height = initialPreview.height;
+            canvas.getContext('2d')?.drawImage(initialPreview, 0, 0);
+            initialPreview.close();
+            initialPreview = undefined;
+          } else {
+            initialPreview?.close();
+            initialPreview = undefined;
+            previewSequenceRef.current = 1;
+            worker.postMessage({
+              type: 'preview',
+              timestamp: 0,
+              sequence: previewSequenceRef.current,
+              treatment: currentTreatment,
+            });
+          }
+          worker.onmessage = (activeEvent) =>
+            handleWorkerMessage(worker, activeEvent);
+        } catch {
+          reject('This browser cannot encode H.264 MP4 on this device.');
+        }
+      })();
     };
     const testOptions = new URLSearchParams(window.location.search);
     worker.postMessage({
       type: 'load',
       file,
+      treatment,
       testExportFailure:
         import.meta.env.DEV && testOptions.has('testExportFailure'),
       testExportDelay: import.meta.env.DEV
@@ -233,6 +305,7 @@ export default function App() {
   };
 
   const exportVideo = () => {
+    if (activeExportRef.current !== null) return;
     setDownloadUrl((url) => {
       if (url) URL.revokeObjectURL(url);
       return '';
@@ -241,11 +314,15 @@ export default function App() {
     setExporting(true);
     setProgress(0);
     setMessage('Encoding on this device…');
-    workerRef.current?.postMessage({ type: 'export', treatment });
+    const operationId = ++exportOperationRef.current;
+    activeExportRef.current = operationId;
+    workerRef.current?.postMessage({ type: 'export', treatment, operationId });
   };
 
   const cancelExport = () => {
-    workerRef.current?.postMessage({ type: 'cancel-export' });
+    const operationId = activeExportRef.current;
+    if (operationId !== null)
+      workerRef.current?.postMessage({ type: 'cancel-export', operationId });
   };
 
   const resetControls = () =>
@@ -665,6 +742,9 @@ export default function App() {
               className={styles.download}
               href={downloadUrl}
               download="ascii-video.mp4"
+              onClick={() =>
+                setMessage('Download requested for your silent MP4.')
+              }
             >
               Download silent MP4
             </a>
