@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './App.module.css';
+import type { CharacterPreset, Treatment } from './treatment';
 
 function formatTime(seconds: number) {
   const wholeSeconds = Math.floor(seconds);
@@ -25,18 +26,6 @@ type WorkerReply =
   | { type: 'canceled' }
   | { type: 'disposed' }
   | { type: 'error'; message: string };
-
-type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
-type Treatment = {
-  density: number;
-  brightness: number;
-  contrast: number;
-  inverted: boolean;
-  preset: CharacterPreset;
-  foreground: string;
-  background: string;
-  sourceColor: boolean;
-};
 
 const defaultTreatment: Treatment = {
   density: 88,
@@ -470,7 +459,7 @@ export default function App() {
                 setTreatment((current) => ({ ...current, sourceColor }));
               }}
             />
-            Sample source colors
+            Source-color mode
           </label>
           <p className={styles.note}>
             Source-color mode colors each character from its source region.

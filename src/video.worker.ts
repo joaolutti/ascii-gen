@@ -9,6 +9,7 @@ import {
   VideoSampleSink,
   ALL_FORMATS,
 } from 'mediabunny';
+import type { CharacterPreset, Treatment } from './treatment';
 
 type Request =
   | {
@@ -26,17 +27,6 @@ type Request =
   | { type: 'export'; treatment: Treatment }
   | { type: 'cancel-export' }
   | { type: 'dispose' };
-type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
-type Treatment = {
-  density: number;
-  brightness: number;
-  contrast: number;
-  inverted: boolean;
-  preset: CharacterPreset;
-  foreground: string;
-  background: string;
-  sourceColor: boolean;
-};
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
   ' .\'`^",:;Il!i~+_-?][}{1)(|\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$';
