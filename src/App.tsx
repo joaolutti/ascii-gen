@@ -15,8 +15,14 @@ type WorkerReply =
       sequence: number;
     }
   | { type: 'ready'; width: number; height: number; duration: number }
-  | { type: 'progress'; value: number }
+  | {
+      type: 'progress';
+      value: number;
+      completedFrames: number;
+      totalFrames: number;
+    }
   | { type: 'done'; bytes: ArrayBuffer }
+  | { type: 'canceled' }
   | { type: 'error'; message: string };
 
 type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
@@ -97,7 +103,7 @@ export default function App() {
   }, [currentTime, duration, exporting, treatment]);
 
   const chooseFile = (file?: File) => {
-    if (!file) return;
+    if (!file || exporting) return;
     workerRef.current?.terminate();
     workerRef.current = null;
     previewSequenceRef.current = 0;
@@ -185,20 +191,44 @@ export default function App() {
         setDownloadUrl(url);
         setExporting(false);
         setMessage('Your silent ASCII video is ready.');
+      } else if (reply.type === 'canceled') {
+        setExporting(false);
+        setProgress(0);
+        setMessage(
+          'Export canceled. Your source video and settings are ready.',
+        );
       } else if (reply.type === 'error') {
         setExporting(false);
-        setMessage(reply.message);
+        setProgress(0);
+        setMessage(`Export failed: ${reply.message} You can try again.`);
       }
     };
-    worker.postMessage({ type: 'load', file });
+    const testOptions = new URLSearchParams(window.location.search);
+    worker.postMessage({
+      type: 'load',
+      file,
+      testExportFailure:
+        import.meta.env.DEV && testOptions.has('testExportFailure'),
+      testExportDelay: import.meta.env.DEV
+        ? Number(testOptions.get('testExportDelay') ?? 0)
+        : 0,
+    });
   };
 
   const exportVideo = () => {
+    setDownloadUrl((url) => {
+      if (url) URL.revokeObjectURL(url);
+      return '';
+    });
     setPlaying(false);
     setExporting(true);
     setProgress(0);
     setMessage('Encoding on this device…');
     workerRef.current?.postMessage({ type: 'export', treatment });
+  };
+
+  const cancelExport = () => {
+    workerRef.current?.postMessage({ type: 'cancel-export' });
   };
 
   return (
@@ -213,7 +243,7 @@ export default function App() {
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          chooseFile(event.dataTransfer.files[0]);
+          if (!exporting) chooseFile(event.dataTransfer.files[0]);
         }}
       >
         <div className={styles.previewColumn}>
@@ -267,6 +297,7 @@ export default function App() {
               aria-label="Choose source video"
               type="file"
               accept="video/mp4,.mp4"
+              disabled={exporting}
               onChange={(event) => {
                 chooseFile(event.target.files?.[0]);
                 event.currentTarget.value = '';
@@ -440,10 +471,21 @@ export default function App() {
             disabled={!canExport || exporting}
             onClick={exportVideo}
           >
-            {exporting
-              ? `Exporting ${Math.round(progress * 100)}%`
-              : 'Export MP4'}
+            Export MP4
           </button>
+          {exporting && (
+            <div className={styles.exportStatus}>
+              <progress aria-label="Export progress" max={1} value={progress} />
+              <span>Exporting {Math.round(progress * 100)}% complete</span>
+              <button
+                type="button"
+                className={styles.cancel}
+                onClick={cancelExport}
+              >
+                Cancel export
+              </button>
+            </div>
+          )}
           {downloadUrl && (
             <a
               className={styles.download}

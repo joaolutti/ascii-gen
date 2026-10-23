@@ -11,7 +11,12 @@ import {
 } from 'mediabunny';
 
 type Request =
-  | { type: 'load'; file: File }
+  | {
+      type: 'load';
+      file: File;
+      testExportFailure?: boolean;
+      testExportDelay?: number;
+    }
   | {
       type: 'preview';
       timestamp: number;
@@ -19,6 +24,7 @@ type Request =
       treatment: Treatment;
     }
   | { type: 'export'; treatment: Treatment }
+  | { type: 'cancel-export' }
   | { type: 'dispose' };
 type CharacterPreset = 'Classic' | 'Minimal' | 'Binary';
 type Treatment = {
@@ -62,6 +68,16 @@ let latestPreviewSequence = 0;
 let pendingPreview:
   { timestamp: number; sequence: number; treatment: Treatment } | undefined;
 let processingPreview = false;
+let exportCanceled = false;
+let activeOutput: Output | undefined;
+let didTestExportFail = false;
+
+let testExportDelay = 0;
+let testExportFailure = false;
+
+function yieldToWorkerMessages() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
 
 function drawAscii(
   sample: {
@@ -276,6 +292,8 @@ async function exportMp4(treatment: Treatment) {
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
+  activeOutput = output;
+  exportCanceled = false;
   const exportCanvas = new OffscreenCanvas(canvas.width, canvas.height);
   const source = new CanvasSource(exportCanvas, {
     codec: 'avc',
@@ -288,33 +306,70 @@ async function exportMp4(treatment: Treatment) {
   const step = 1 / frameRate;
   const firstTimestamp = await track.getFirstTimestamp();
   const frameCount = Math.ceil(duration * frameRate);
-  for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-    const timestamp = frameIndex * step;
-    if (timestamp >= duration) break;
-    const sample = await sink.getSample(firstTimestamp + timestamp);
-    if (!sample)
-      throw new Error(
-        `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
-      );
-    drawAscii(sample, exportCanvas, treatment);
-    sample.close();
-    await source.add(timestamp, Math.min(step, duration - timestamp));
-    count++;
-    if (count % 4 === 0)
+  try {
+    for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+      if (exportCanceled) return;
+      const timestamp = frameIndex * step;
+      if (timestamp >= duration) break;
+      const sample = await sink.getSample(firstTimestamp + timestamp);
+      if (exportCanceled) {
+        sample?.close();
+        return;
+      }
+      if (!sample)
+        throw new Error(
+          `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
+        );
+      try {
+        drawAscii(sample, exportCanvas, treatment);
+      } finally {
+        sample.close();
+      }
+      await source.add(timestamp, Math.min(step, duration - timestamp));
+      count++;
       scope.postMessage({
         type: 'progress',
-        value: Math.min(0.99, timestamp / duration),
+        value: Math.min(0.99, count / frameCount),
+        completedFrames: count,
+        totalFrames: frameCount,
       });
+      if (testExportFailure && !didTestExportFail && count === 2) {
+        didTestExportFail = true;
+        throw new Error('Controlled export failure for recovery testing.');
+      }
+      if (testExportDelay > 0)
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, testExportDelay),
+        );
+      else await yieldToWorkerMessages();
+    }
+    if (exportCanceled) return;
+    source.close();
+    await output.finalize();
+    if (exportCanceled) return;
+    if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
+    scope.postMessage({ type: 'done', bytes: target.buffer }, [target.buffer]);
+  } catch (error) {
+    if (exportCanceled) return;
+    if (output.state !== 'finalized' && output.state !== 'canceled') {
+      await output.cancel();
+    }
+    throw error;
+  } finally {
+    source.close();
+    if (activeOutput === output) activeOutput = undefined;
+    if (exportCanceled) {
+      exportCanceled = false;
+      scope.postMessage({ type: 'canceled' });
+    }
   }
-  source.close();
-  await output.finalize();
-  if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
-  scope.postMessage({ type: 'done', bytes: target.buffer }, [target.buffer]);
 }
 
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
+    exportCanceled = true;
+    void activeOutput?.cancel();
     input?.dispose();
     input = undefined;
     sink = undefined;
@@ -322,6 +377,16 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     file = undefined;
     canvas = undefined;
     pendingPreview = undefined;
+    return;
+  }
+  if (request.type === 'load') {
+    testExportDelay = import.meta.env.DEV ? (request.testExportDelay ?? 0) : 0;
+    testExportFailure =
+      import.meta.env.DEV && request.testExportFailure === true;
+  }
+  if (request.type === 'cancel-export') {
+    exportCanceled = true;
+    void activeOutput?.cancel();
     return;
   }
   if (request.type === 'preview') {
