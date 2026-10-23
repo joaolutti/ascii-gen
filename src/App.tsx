@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './App.module.css';
-import type { CharacterPreset, Treatment } from './treatment';
+import type { CharacterPreset, RenderMode, Treatment } from './treatment';
 
 function formatTime(seconds: number) {
   const wholeSeconds = Math.floor(seconds);
@@ -28,7 +28,10 @@ type WorkerReply =
   | { type: 'error'; message: string };
 
 const defaultTreatment: Treatment = {
+  mode: 'ASCII',
   density: 88,
+  gridStep: 8,
+  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -228,7 +231,19 @@ export default function App() {
     workerRef.current?.postMessage({ type: 'cancel-export' });
   };
 
-  const resetControls = () => setTreatment(defaultTreatment);
+  const resetControls = () =>
+    setTreatment(
+      treatment.mode === 'ASCII'
+        ? defaultTreatment
+        : {
+            ...defaultTreatment,
+            mode: 'Pixelated',
+            gridStep: 8,
+            spacing: 25,
+            foreground: '#ffb547',
+            background: '#000000',
+          },
+    );
 
   return (
     <main className={styles.page}>
@@ -248,7 +263,10 @@ export default function App() {
         <div className={styles.previewColumn}>
           <div className={styles.preview}>
             {name ? (
-              <canvas ref={canvasRef} aria-label="ASCII preview" />
+              <canvas
+                ref={canvasRef}
+                aria-label={`${treatment.mode} preview`}
+              />
             ) : (
               <div className={styles.empty}>
                 <span className={styles.mark}>A·S·C·I·I</span>
@@ -308,163 +326,318 @@ export default function App() {
             {message}
           </p>
           <div className={styles.divider} />
-          <p className={styles.eyebrow}>CHARACTER PRESET</p>
-          <label className={styles.controlLabel} htmlFor="character-preset">
-            Character preset
+          <p className={styles.eyebrow}>RENDER MODE</p>
+          <label className={styles.controlLabel} htmlFor="render-mode">
+            Render mode
           </label>
           <select
-            id="character-preset"
-            aria-label="Character preset"
+            id="render-mode"
+            aria-label="Render mode"
             className={styles.select}
-            value={treatment.preset}
+            value={treatment.mode}
             disabled={exporting}
             onChange={(event) => {
-              const preset = event.currentTarget.value as CharacterPreset;
+              const mode = event.currentTarget.value as RenderMode;
               setTreatment((current) => ({
                 ...current,
-                preset,
+                mode,
+                ...(mode === 'Pixelated'
+                  ? {
+                      gridStep: 8,
+                      spacing: 25,
+                      foreground: '#ffb547',
+                      background: '#000000',
+                      brightness: 0,
+                      contrast: 100,
+                      inverted: false,
+                    }
+                  : {
+                      ...defaultTreatment,
+                      mode,
+                    }),
               }));
             }}
           >
-            <option value="Classic">Classic</option>
-            <option value="Minimal">Minimal</option>
-            <option value="Binary">Binary</option>
+            <option value="ASCII">ASCII</option>
+            <option value="Pixelated">Pixelated</option>
           </select>
-          <p className={styles.note}>
-            Classic: varied ASCII ramp (space to $) · Minimal: space, dot, hash
-            · Binary: space, 0, 1
-          </p>
-          <label className={styles.rangeLabel} htmlFor="density">
-            Density <span>{treatment.density} columns</span>
-          </label>
-          <input
-            id="density"
-            aria-label="Density"
-            className={styles.range}
-            type="range"
-            min={24}
-            max={160}
-            step={8}
-            value={treatment.density}
-            disabled={exporting}
-            onChange={(event) => {
-              const density = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                density,
-              }));
-            }}
-          />
-          <p className={styles.note}>24–160 columns · default 88</p>
-          <label className={styles.rangeLabel} htmlFor="brightness">
-            Brightness <span>{treatment.brightness}</span>
-          </label>
-          <input
-            id="brightness"
-            aria-label="Brightness"
-            className={styles.range}
-            type="range"
-            min={-100}
-            max={100}
-            step={1}
-            value={treatment.brightness}
-            disabled={exporting}
-            onChange={(event) => {
-              const brightness = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                brightness,
-              }));
-            }}
-          />
-          <p className={styles.note}>−100 to +100 · default 0</p>
-          <label className={styles.rangeLabel} htmlFor="contrast">
-            Contrast <span>{treatment.contrast}%</span>
-          </label>
-          <input
-            id="contrast"
-            aria-label="Contrast"
-            className={styles.range}
-            type="range"
-            min={0}
-            max={200}
-            step={1}
-            value={treatment.contrast}
-            disabled={exporting}
-            onChange={(event) => {
-              const contrast = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                contrast,
-              }));
-            }}
-          />
-          <p className={styles.note}>0–200% · default 100%</p>
-          <label className={styles.checkboxLabel}>
-            <input
-              aria-label="Invert brightness mapping"
-              type="checkbox"
-              checked={treatment.inverted}
-              disabled={exporting}
-              onChange={(event) => {
-                const inverted = event.currentTarget.checked;
-                setTreatment((current) => ({
-                  ...current,
-                  inverted,
-                }));
-              }}
-            />
-            Invert brightness mapping
-          </label>
-          <p className={styles.note}>
-            Inversion changes character mapping only; colors stay the same.
-          </p>
-          <p className={styles.eyebrow}>COLORS</p>
-          <label className={styles.colorLabel} htmlFor="foreground-color">
-            Foreground color
-            <input
-              id="foreground-color"
-              aria-label="Foreground color"
-              type="color"
-              value={treatment.foreground}
-              disabled={exporting}
-              onChange={(event) => {
-                const foreground = event.currentTarget.value;
-                setTreatment((current) => ({ ...current, foreground }));
-              }}
-            />
-          </label>
-          <label className={styles.colorLabel} htmlFor="background-color">
-            Background color
-            <input
-              id="background-color"
-              aria-label="Background color"
-              type="color"
-              value={treatment.background}
-              disabled={exporting}
-              onChange={(event) => {
-                const background = event.currentTarget.value;
-                setTreatment((current) => ({ ...current, background }));
-              }}
-            />
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input
-              aria-label="Source-color mode"
-              type="checkbox"
-              checked={treatment.sourceColor}
-              disabled={exporting}
-              onChange={(event) => {
-                const sourceColor = event.currentTarget.checked;
-                setTreatment((current) => ({ ...current, sourceColor }));
-              }}
-            />
-            Source-color mode
-          </label>
-          <p className={styles.note}>
-            Source-color mode colors each character from its source region.
-            Brightness still selects the character.
-          </p>
+          {treatment.mode === 'ASCII' ? (
+            <>
+              <p className={styles.eyebrow}>CHARACTER PRESET</p>
+              <label className={styles.controlLabel} htmlFor="character-preset">
+                Character preset
+              </label>
+              <select
+                id="character-preset"
+                aria-label="Character preset"
+                className={styles.select}
+                value={treatment.preset}
+                disabled={exporting}
+                onChange={(event) => {
+                  const preset = event.currentTarget.value as CharacterPreset;
+                  setTreatment((current) => ({
+                    ...current,
+                    preset,
+                  }));
+                }}
+              >
+                <option value="Classic">Classic</option>
+                <option value="Minimal">Minimal</option>
+                <option value="Binary">Binary</option>
+              </select>
+              <p className={styles.note}>
+                Classic: varied ASCII ramp (space to $) · Minimal: space, dot,
+                hash · Binary: space, 0, 1
+              </p>
+              <label className={styles.rangeLabel} htmlFor="density">
+                Density <span>{treatment.density} columns</span>
+              </label>
+              <input
+                id="density"
+                aria-label="Density"
+                className={styles.range}
+                type="range"
+                min={24}
+                max={160}
+                step={8}
+                value={treatment.density}
+                disabled={exporting}
+                onChange={(event) => {
+                  const density = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    density,
+                  }));
+                }}
+              />
+              <p className={styles.note}>24–160 columns · default 88</p>
+              <label className={styles.rangeLabel} htmlFor="brightness">
+                Brightness <span>{treatment.brightness}</span>
+              </label>
+              <input
+                id="brightness"
+                aria-label="Brightness"
+                className={styles.range}
+                type="range"
+                min={-100}
+                max={100}
+                step={1}
+                value={treatment.brightness}
+                disabled={exporting}
+                onChange={(event) => {
+                  const brightness = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    brightness,
+                  }));
+                }}
+              />
+              <p className={styles.note}>−100 to +100 · default 0</p>
+              <label className={styles.rangeLabel} htmlFor="contrast">
+                Contrast <span>{treatment.contrast}%</span>
+              </label>
+              <input
+                id="contrast"
+                aria-label="Contrast"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={treatment.contrast}
+                disabled={exporting}
+                onChange={(event) => {
+                  const contrast = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    contrast,
+                  }));
+                }}
+              />
+              <p className={styles.note}>0–200% · default 100%</p>
+              <label className={styles.checkboxLabel}>
+                <input
+                  aria-label="Invert brightness mapping"
+                  type="checkbox"
+                  checked={treatment.inverted}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const inverted = event.currentTarget.checked;
+                    setTreatment((current) => ({
+                      ...current,
+                      inverted,
+                    }));
+                  }}
+                />
+                Invert brightness mapping
+              </label>
+              <p className={styles.note}>
+                Inversion changes character mapping only; colors stay the same.
+              </p>
+              <p className={styles.eyebrow}>COLORS</p>
+              <label className={styles.colorLabel} htmlFor="foreground-color">
+                Foreground color
+                <input
+                  id="foreground-color"
+                  aria-label="Foreground color"
+                  type="color"
+                  value={treatment.foreground}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const foreground = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, foreground }));
+                  }}
+                />
+              </label>
+              <label className={styles.colorLabel} htmlFor="background-color">
+                Background color
+                <input
+                  id="background-color"
+                  aria-label="Background color"
+                  type="color"
+                  value={treatment.background}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const background = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, background }));
+                  }}
+                />
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  aria-label="Source-color mode"
+                  type="checkbox"
+                  checked={treatment.sourceColor}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const sourceColor = event.currentTarget.checked;
+                    setTreatment((current) => ({ ...current, sourceColor }));
+                  }}
+                />
+                Source-color mode
+              </label>
+              <p className={styles.note}>
+                Source-color mode colors each character from its source region.
+                Brightness still selects the character.
+              </p>
+            </>
+          ) : (
+            <>
+              <label className={styles.rangeLabel} htmlFor="grid-step">
+                Grid step <span>{treatment.gridStep} px</span>
+              </label>
+              <input
+                id="grid-step"
+                aria-label="Grid step"
+                className={styles.range}
+                type="range"
+                min={4}
+                max={32}
+                step={4}
+                value={treatment.gridStep}
+                disabled={exporting}
+                onChange={(event) => {
+                  const gridStep = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, gridStep }));
+                }}
+              />
+              <label className={styles.rangeLabel} htmlFor="spacing">
+                Spacing <span>{treatment.spacing}%</span>
+              </label>
+              <input
+                id="spacing"
+                aria-label="Spacing"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={75}
+                step={5}
+                value={treatment.spacing}
+                disabled={exporting}
+                onChange={(event) => {
+                  const spacing = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, spacing }));
+                }}
+              />
+              <label className={styles.rangeLabel} htmlFor="brightness">
+                Brightness <span>{treatment.brightness}</span>
+              </label>
+              <input
+                id="brightness"
+                aria-label="Brightness"
+                className={styles.range}
+                type="range"
+                min={-100}
+                max={100}
+                step={1}
+                value={treatment.brightness}
+                disabled={exporting}
+                onChange={(event) => {
+                  const brightness = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, brightness }));
+                }}
+              />
+              <label className={styles.rangeLabel} htmlFor="contrast">
+                Contrast <span>{treatment.contrast}%</span>
+              </label>
+              <input
+                id="contrast"
+                aria-label="Contrast"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={treatment.contrast}
+                disabled={exporting}
+                onChange={(event) => {
+                  const contrast = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, contrast }));
+                }}
+              />
+              <label className={styles.checkboxLabel}>
+                <input
+                  aria-label="Invert brightness mapping"
+                  type="checkbox"
+                  checked={treatment.inverted}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const inverted = event.currentTarget.checked;
+                    setTreatment((current) => ({ ...current, inverted }));
+                  }}
+                />
+                Invert brightness mapping
+              </label>
+              <label className={styles.colorLabel} htmlFor="foreground-color">
+                Foreground color
+                <input
+                  id="foreground-color"
+                  aria-label="Foreground color"
+                  type="color"
+                  value={treatment.foreground}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const foreground = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, foreground }));
+                  }}
+                />
+              </label>
+              <label className={styles.colorLabel} htmlFor="background-color">
+                Background color
+                <input
+                  id="background-color"
+                  aria-label="Background color"
+                  type="color"
+                  value={treatment.background}
+                  disabled={exporting}
+                  onChange={(event) => {
+                    const background = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, background }));
+                  }}
+                />
+              </label>
+            </>
+          )}
           <button
             type="button"
             className={styles.reset}

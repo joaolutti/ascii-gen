@@ -36,7 +36,10 @@ const ramps: Record<CharacterPreset, string> = {
   Binary: ' 01',
 };
 const defaultTreatment: Treatment = {
+  mode: 'ASCII',
   density: 88,
+  gridStep: 8,
+  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -126,6 +129,92 @@ function drawAscii(
     }
 }
 
+function drawPixelated(
+  sample: {
+    draw: (
+      context: OffscreenCanvasRenderingContext2D,
+      x: number,
+      y: number,
+      width?: number,
+      height?: number,
+    ) => void;
+  },
+  target: OffscreenCanvas,
+  treatment: Treatment,
+) {
+  const context = target.getContext('2d');
+  if (!context) throw new Error('Canvas 2D is unavailable.');
+  const source = new OffscreenCanvas(target.width, target.height);
+  const sourceContext = source.getContext('2d', { willReadFrequently: true });
+  if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
+  sample.draw(sourceContext, 0, 0, target.width, target.height);
+  const { data } = sourceContext.getImageData(
+    0,
+    0,
+    target.width,
+    target.height,
+  );
+  context.fillStyle = treatment.background;
+  context.fillRect(0, 0, target.width, target.height);
+  context.fillStyle = treatment.foreground;
+  const step = treatment.gridStep;
+  const spacing = Math.max(0, Math.min(0.75, treatment.spacing / 100));
+  const columns = Math.max(1, Math.round(target.width / step));
+  const rows = Math.max(1, Math.round(target.height / step));
+  const centerX = (columns - 1) / 2;
+  const centerY = (rows - 1) / 2;
+  for (let row = 0; row < rows; row++) {
+    const y = target.height / 2 + (row - centerY) * step;
+    for (let column = 0; column < columns; column++) {
+      const x = target.width / 2 + (column - centerX) * step;
+      const left = Math.max(0, Math.floor(x - step / 2));
+      const top = Math.max(0, Math.floor(y - step / 2));
+      const right = Math.min(target.width, Math.ceil(x + step / 2));
+      const bottom = Math.min(target.height, Math.ceil(y + step / 2));
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      let pixels = 0;
+      for (let py = top; py < bottom; py++)
+        for (let px = left; px < right; px++) {
+          const offset = (py * target.width + px) * 4;
+          red += data[offset];
+          green += data[offset + 1];
+          blue += data[offset + 2];
+          pixels++;
+        }
+      if (!pixels) continue;
+      red /= pixels;
+      green /= pixels;
+      blue /= pixels;
+      let brightness = (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255;
+      brightness = Math.max(
+        0,
+        Math.min(
+          1,
+          (brightness - 0.5) * (treatment.contrast / 100) +
+            0.5 +
+            treatment.brightness / 100,
+        ),
+      );
+      if (treatment.inverted) brightness = 1 - brightness;
+      const side = step * (1 - spacing) * brightness;
+      if (side <= 0) continue;
+      context.fillStyle = treatment.foreground;
+      context.fillRect(x - side / 2, y - side / 2, side, side);
+    }
+  }
+}
+
+function drawFrame(
+  sample: Parameters<typeof drawAscii>[0],
+  target: OffscreenCanvas,
+  treatment: Treatment,
+) {
+  if (treatment.mode === 'Pixelated') drawPixelated(sample, target, treatment);
+  else drawAscii(sample, target, treatment);
+}
+
 function outputDimensions(sourceWidth: number, sourceHeight: number) {
   const portrait = sourceHeight > sourceWidth;
   const maxWidth = portrait ? 720 : 1280;
@@ -205,7 +294,7 @@ async function load(sourceFile: File) {
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
-  drawAscii(sample, canvas, defaultTreatment);
+  drawFrame(sample, canvas, defaultTreatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
@@ -234,7 +323,7 @@ async function renderPreview(
     sample.close();
     return;
   }
-  drawAscii(sample, canvas, treatment);
+  drawFrame(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   if (sequence !== latestPreviewSequence) {
@@ -311,7 +400,7 @@ async function exportMp4(treatment: Treatment) {
           `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
         );
       try {
-        drawAscii(sample, exportCanvas, treatment);
+        drawFrame(sample, exportCanvas, treatment);
       } finally {
         sample.close();
       }
