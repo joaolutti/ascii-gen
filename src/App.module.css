@@ -26,6 +26,11 @@
   gap: 32px;
   align-items: start;
 }
+.previewColumn {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
 .preview {
   min-height: 380px;
   display: grid;
@@ -33,6 +38,39 @@
   background: #0b0b0b;
   border: 1px solid #292929;
   overflow: auto;
+}
+.playback {
+  display: grid;
+  grid-template-columns: 64px minmax(80px, 1fr) 76px;
+  align-items: center;
+  gap: 14px;
+}
+.playButton {
+  height: 36px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: transparent;
+  color: #ddd;
+  font-size: 12px;
+  cursor: pointer;
+}
+.playButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.seek {
+  width: 100%;
+  accent-color: #ddd;
+  cursor: pointer;
+}
+.seek:disabled {
+  cursor: not-allowed;
+}
+.playbackTime {
+  color: #999;
+  font: 11px monospace;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .preview canvas {
   display: block;

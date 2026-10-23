@@ -10,7 +10,11 @@ import {
   ALL_FORMATS,
 } from 'mediabunny';
 
-type Request = { type: 'load'; file: File } | { type: 'export' };
+type Request =
+  | { type: 'load'; file: File }
+  | { type: 'preview'; timestamp: number; sequence: number }
+  | { type: 'export' }
+  | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
   ' .\'`^",:;Il!i~+_-?][}{1)(|\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$';
@@ -23,30 +27,36 @@ let input: Input | undefined;
 let track: Awaited<ReturnType<Input['getPrimaryVideoTrack']>>;
 let sink: VideoSampleSink | undefined;
 let canvas: OffscreenCanvas | undefined;
+let latestPreviewSequence = 0;
+let pendingPreview: { timestamp: number; sequence: number } | undefined;
+let processingPreview = false;
 
-function drawAscii(sample: {
-  draw: (
-    context: OffscreenCanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width?: number,
-    height?: number,
-  ) => void;
-}) {
-  if (!canvas) throw new Error('No video frame is loaded.');
-  const context = canvas.getContext('2d');
+function drawAscii(
+  sample: {
+    draw: (
+      context: OffscreenCanvasRenderingContext2D,
+      x: number,
+      y: number,
+      width?: number,
+      height?: number,
+    ) => void;
+  },
+  target = canvas,
+) {
+  if (!target) throw new Error('No video frame is loaded.');
+  const context = target.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable.');
   const cols = 88;
   const rows = Math.max(1, Math.round(((cols * height) / width) * 0.55));
-  const cellW = canvas.width / cols;
-  const cellH = canvas.height / rows;
+  const cellW = target.width / cols;
+  const cellH = target.height / rows;
   const source = new OffscreenCanvas(cols, rows);
   const sourceContext = source.getContext('2d', { willReadFrequently: true });
   if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
   sample.draw(sourceContext, 0, 0, cols, rows);
   const pixels = sourceContext.getImageData(0, 0, cols, rows).data;
   context.fillStyle = '#111111';
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillRect(0, 0, target.width, target.height);
   context.fillStyle = '#ffffff';
   context.font = `${cellH}px monospace`;
   context.textBaseline = 'top';
@@ -83,7 +93,11 @@ async function load(sourceFile: File) {
     throw new Error(
       'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
     );
+  input?.dispose();
+  input = undefined;
+  sink = undefined;
   file = sourceFile;
+  latestPreviewSequence = 0;
   input = new Input({
     formats: ALL_FORMATS,
     source: new BlobSource(sourceFile),
@@ -144,14 +158,65 @@ async function load(sourceFile: File) {
   drawAscii(sample);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
-  scope.postMessage({ type: 'preview', bitmap, name: sourceFile.name }, [
-    bitmap,
-  ]);
+  scope.postMessage(
+    { type: 'preview', bitmap, name: sourceFile.name, sequence: 0 },
+    [bitmap],
+  );
   scope.postMessage({
     type: 'ready',
     width: canvas.width,
     height: canvas.height,
+    duration,
   });
+}
+
+async function renderPreview(timestamp: number, sequence: number) {
+  if (!sink || !canvas || !track) return;
+  const firstTimestamp = await track.getFirstTimestamp();
+  const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
+  const sample = await sink.getSample(firstTimestamp + boundedTimestamp);
+  if (!sample) return;
+  if (sequence !== latestPreviewSequence) {
+    sample.close();
+    return;
+  }
+  drawAscii(sample);
+  sample.close();
+  const bitmap = await createImageBitmap(canvas);
+  if (sequence !== latestPreviewSequence) {
+    bitmap.close();
+    return;
+  }
+  scope.postMessage(
+    { type: 'preview', bitmap, name: file?.name ?? '', sequence },
+    [bitmap],
+  );
+}
+
+async function processPreviewQueue() {
+  if (processingPreview) return;
+  processingPreview = true;
+  try {
+    while (pendingPreview) {
+      const request = pendingPreview;
+      pendingPreview = undefined;
+      try {
+        await renderPreview(request.timestamp, request.sequence);
+      } catch (error) {
+        if (request.sequence !== latestPreviewSequence) continue;
+        scope.postMessage({
+          type: 'error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not render preview.',
+        });
+      }
+    }
+  } finally {
+    processingPreview = false;
+    if (pendingPreview) void processPreviewQueue();
+  }
 }
 
 async function exportMp4() {
@@ -159,7 +224,8 @@ async function exportMp4() {
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
-  const source = new CanvasSource(canvas, {
+  const exportCanvas = new OffscreenCanvas(canvas.width, canvas.height);
+  const source = new CanvasSource(exportCanvas, {
     codec: 'avc',
     quality: new Quality('medium'),
   });
@@ -178,7 +244,7 @@ async function exportMp4() {
       throw new Error(
         `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
       );
-    drawAscii(sample);
+    drawAscii(sample, exportCanvas);
     sample.close();
     await source.add(timestamp, Math.min(step, duration - timestamp));
     count++;
@@ -195,12 +261,37 @@ async function exportMp4() {
 }
 
 scope.onmessage = (event: MessageEvent<Request>) => {
-  const task = event.data.type === 'load' ? load(event.data.file) : exportMp4();
-  task.catch((error: unknown) =>
+  const request = event.data;
+  if (request.type === 'dispose') {
+    input?.dispose();
+    input = undefined;
+    sink = undefined;
+    track = null;
+    file = undefined;
+    canvas = undefined;
+    pendingPreview = undefined;
+    return;
+  }
+  if (request.type === 'preview') {
+    latestPreviewSequence = request.sequence;
+    pendingPreview = request;
+    void processPreviewQueue();
+    return;
+  }
+  const task = request.type === 'load' ? load(request.file) : exportMp4();
+  task.catch((error: unknown) => {
+    if (request.type === 'load') {
+      input?.dispose();
+      input = undefined;
+      track = null;
+      sink = undefined;
+      file = undefined;
+      canvas = undefined;
+    }
     scope.postMessage({
       type: 'error',
       message:
         error instanceof Error ? error.message : 'Video processing failed.',
-    }),
-  );
+    });
+  });
 };
