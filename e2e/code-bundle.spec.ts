@@ -201,8 +201,8 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
             rows: ['A'.repeat(24), 'A'.repeat(24)],
           },
           {
-            timestamp: 0.1,
-            duration: 0.1,
+            timestamp: 0.1999995,
+            duration: 0.0000005,
             rows: ['B'.repeat(24), 'B'.repeat(24)],
           },
         ],
@@ -222,17 +222,22 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     expect(
       await hostedPre.evaluate((pre) => pre.getBoundingClientRect().width),
     ).toBeLessThanOrEqual(160);
-    await separateConsumer.evaluate(() => window.testPlayer.seek(0.1));
+    await separateConsumer.evaluate(() => window.testPlayer.seek(0.1999995));
     await expect(hostedPre).toContainText(/^B/);
     await separateConsumer.evaluate(() => window.testPlayer.seek(0.2));
     await expect(hostedPre).toContainText(/^B/);
     await separateConsumer.evaluate(() => {
       window.testPlayer.setLoop(false);
+      window.testPlayer.seek(0);
+    });
+    await expect(hostedPre).toContainText(/^A/);
+    await separateConsumer.evaluate(() => {
       window.testPlayer.play();
     });
     await expect(
       separateConsumer.getByRole('button', { name: 'Play' }),
     ).toBeVisible({ timeout: 1000 });
+    await expect(hostedPre).toContainText(/^B/);
     expect(
       await separateConsumer.evaluate(() => window.testPlayer.getCurrentTime()),
     ).toBeCloseTo(0.2, 2);

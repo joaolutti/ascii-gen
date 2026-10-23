@@ -114,7 +114,7 @@ const player = `(function (global) {
       playing = false;
       stopSchedule();
       updateButton();
-      renderAt(Math.min(elapsed, data.duration - Number.EPSILON));
+      renderAt(elapsed);
     };
     const play = () => {
       if (disposed || playing) return;
@@ -133,7 +133,7 @@ const player = `(function (global) {
           elapsed = data.duration;
           playing = false;
           updateButton();
-          renderAt(Math.max(0, data.duration - 0.000001));
+          renderAt(data.duration);
           return;
         }
         const wrapped = time % data.duration;
@@ -149,7 +149,7 @@ const player = `(function (global) {
       if (disposed || !Number.isFinite(time)) return;
       elapsed = Math.max(0, Math.min(data.duration, time));
       if (playing) startedAt = global.performance.now();
-      renderAt(Math.min(elapsed, Math.max(0, data.duration - 0.000001)));
+      renderAt(elapsed);
       if (elapsed === data.duration && playing && !loop.checked) pause();
     };
     const setLoop = (enabled) => { loop.checked = Boolean(enabled); };
