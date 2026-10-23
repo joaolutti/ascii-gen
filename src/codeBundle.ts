@@ -11,12 +11,16 @@ const player = `(() => {
     !data || data.version !== 1 ||
     !Number.isInteger(data.width) || data.width < 1 || data.width > 1280 ||
     !Number.isInteger(data.height) || data.height < 1 || data.height > 1280 ||
-    !Number.isInteger(data.columns) || data.columns < 1 || data.columns > 160 ||
+    !Number.isInteger(data.columns) || data.columns < 24 || data.columns > 160 ||
+    (data.columns - 24) % 8 !== 0 ||
     !Number.isInteger(data.rows) || data.rows < 1 || data.rows > 1200 ||
     data.columns * data.rows > 288000 ||
     !Number.isFinite(data.cellWidth) || data.cellWidth <= 0 ||
     !Number.isFinite(data.cellHeight) || data.cellHeight <= 0 ||
     !Number.isFinite(data.fontSize) || data.fontSize <= 0 ||
+    Math.abs(data.cellWidth * data.columns - data.width) > 0.01 ||
+    Math.abs(data.cellHeight * data.rows - data.height) > 0.01 ||
+    Math.abs(data.fontSize - data.cellHeight) > 0.01 ||
     !Number.isFinite(data.duration) || data.duration <= 0 || data.duration >= 15 ||
     !Array.isArray(data.frames) || data.frames.length < 1 || data.frames.length > 450 ||
     data.columns * data.rows * data.frames.length > 7200000
