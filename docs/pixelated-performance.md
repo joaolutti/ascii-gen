@@ -2,7 +2,7 @@
 
 ## Current behavior
 
-The editor advances preview time using elapsed wall-clock time and publishes at most 30 preview timestamps per second. The worker processes one preview at a time and retains only the newest pending request. It returns an in-flight frame even when a newer request arrived during rendering; the editor displays preview results only when their sequence is newer than the last displayed result. This avoids discarding every in-flight frame when rendering takes longer than one scheduler interval, while still preventing an older result from replacing a newer displayed frame.
+The editor advances preview time using elapsed wall-clock time and publishes at most 30 preview timestamps per second. The worker processes one preview at a time and retains only the newest pending request. The editor paints a reply only when its sequence matches the latest requested preview and is newer than the last displayed result. Frames made obsolete by a later seek or treatment change are closed without painting.
 
 The same playback scheduler is used by ASCII mode. Pixelated sampling, cell placement, spacing, colors, brightness, contrast, and inversion were not changed as a performance workaround.
 
