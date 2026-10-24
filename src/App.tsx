@@ -144,7 +144,10 @@ export default function App() {
       return;
     }
     if (reply.type === 'preview') {
-      if (reply.sequence <= displayedPreviewSequenceRef.current) {
+      if (
+        reply.sequence !== previewSequenceRef.current ||
+        reply.sequence <= displayedPreviewSequenceRef.current
+      ) {
         reply.bitmap.close();
         return;
       }
