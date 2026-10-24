@@ -117,12 +117,28 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     const consumer = await context.newPage();
     await consumer.goto(`file://${example}`);
     await expect(consumer.getByRole('button', { name: 'Play' })).toBeVisible();
-    await expect(consumer.locator('pre')).toContainText(/[^\s]/);
+    const exampleCanvas = consumer.locator(
+      'canvas[aria-label="ASCII video frame"]',
+    );
+    await expect(exampleCanvas).toBeVisible();
     expect(
-      await consumer
-        .locator('pre')
-        .evaluate((pre) => getComputedStyle(pre).color),
-    ).toBe('rgb(255, 255, 255)');
+      await exampleCanvas.evaluate((canvas) => {
+        const element = canvas as HTMLCanvasElement;
+        const pixels = element
+          .getContext('2d')!
+          .getImageData(0, 0, element.width, element.height).data;
+        let whitePixels = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (
+            pixels[i] === 255 &&
+            pixels[i + 1] === 255 &&
+            pixels[i + 2] === 255
+          )
+            whitePixels++;
+        }
+        return whitePixels;
+      }),
+    ).toBeGreaterThan(0);
     await consumer.getByRole('button', { name: 'Play' }).click();
     await expect(consumer.getByRole('button', { name: 'Pause' })).toBeVisible();
     await consumer.close();
@@ -182,10 +198,9 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     await sourceColorExample.goto(
       `file://${join(sourceColorDirectory, 'index.html')}`,
     );
-    await expect(sourceColorExample.locator('pre span').first()).toHaveCSS(
-      'color',
-      /rgb\((2\d\d|255), \d+, 0\)/,
-    );
+    await expect(
+      sourceColorExample.locator('canvas[aria-label="ASCII video frame"]'),
+    ).toBeVisible();
     await expect(sourceColorExample.locator('body')).toHaveCSS(
       'background-color',
       'rgb(17, 17, 17)',
@@ -201,13 +216,13 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
     await separateConsumer.evaluate(() => {
       const data = {
         version: 1,
-        width: 320,
-        height: 180,
+        width: 240,
+        height: 20,
         columns: 24,
         rows: 2,
-        cellWidth: 320 / 24,
-        cellHeight: 90,
-        fontSize: 90,
+        cellWidth: 10,
+        cellHeight: 10,
+        fontSize: 10,
         foreground: '#22cc44',
         background: '#112233',
         duration: 0.2,
@@ -249,39 +264,71 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
         data: colorData,
       });
     });
-    const hostedPre = separateConsumer.locator('#host pre');
-    await expect(hostedPre).toContainText(/^A/);
-    await expect(hostedPre).toHaveCSS('color', 'rgb(34, 204, 68)');
-    await expect(hostedPre).toHaveCSS('background-color', 'rgb(17, 34, 51)');
-    await expect(
-      separateConsumer.locator('#source-color-host pre span').first(),
-    ).toHaveCSS('color', 'rgb(255, 0, 0)');
-    await expect(separateConsumer.locator('#source-color-host pre')).toHaveCSS(
-      'background-color',
-      'rgb(17, 34, 51)',
+    const hostedCanvas = separateConsumer.locator('#host canvas');
+    await expect(hostedCanvas).toHaveAttribute(
+      'aria-label',
+      'ASCII video frame',
     );
+    await expect(hostedCanvas).toHaveCSS('background-color', 'rgb(17, 34, 51)');
+    const canvasColors = async (selector: string) =>
+      separateConsumer.locator(selector).evaluate((canvas) => {
+        const element = canvas as HTMLCanvasElement;
+        const pixels = element
+          .getContext('2d')!
+          .getImageData(0, 0, element.width, element.height).data;
+        const colors = new Set<string>();
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i + 3])
+            colors.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`);
+        }
+        return [...colors];
+      });
+    const canvasSnapshot = (selector: string) =>
+      separateConsumer.locator(selector).evaluate((canvas) => {
+        const element = canvas as HTMLCanvasElement;
+        return [
+          ...element
+            .getContext('2d')!
+            .getImageData(0, 0, element.width, element.height).data,
+        ].join(',');
+      });
+    expect(await canvasColors('#host canvas')).toContain('34,204,68');
+    expect(await canvasColors('#source-color-host canvas')).toContain(
+      '255,0,0',
+    );
+    await expect(
+      separateConsumer.locator('#source-color-host canvas'),
+    ).toHaveCSS('background-color', 'rgb(17, 34, 51)');
     await expect(
       separateConsumer.locator('#host').getByRole('button', { name: 'Play' }),
     ).toBeVisible();
     expect(
-      await hostedPre.evaluate((pre) => pre.getBoundingClientRect().width),
+      await hostedCanvas.evaluate(
+        (canvas) => canvas.getBoundingClientRect().width,
+      ),
     ).toBeLessThanOrEqual(160);
+    const firstFrame = await canvasSnapshot('#host canvas');
     await separateConsumer.evaluate(() => window.testPlayer.seek(0.1999995));
-    await expect(hostedPre).toContainText(/^B/);
+    await expect
+      .poll(() => canvasSnapshot('#host canvas'))
+      .not.toBe(firstFrame);
+    const lastFrame = await canvasSnapshot('#host canvas');
     await separateConsumer.evaluate(() => window.testPlayer.seek(0.2));
-    await expect(hostedPre).toContainText(/^B/);
+    await expect.poll(() => canvasSnapshot('#host canvas')).toBe(lastFrame);
     await separateConsumer.evaluate(() => {
       window.testPlayer.setLoop(false);
       window.testPlayer.seek(0);
     });
-    await expect(hostedPre).toContainText(/^A/);
+    await expect.poll(() => canvasSnapshot('#host canvas')).toBe(firstFrame);
     await separateConsumer.evaluate(() => {
       window.testPlayer.play();
     });
     await expect(
       separateConsumer.locator('#host').getByRole('button', { name: 'Play' }),
     ).toBeVisible({ timeout: 1000 });
-    await expect(hostedPre).toContainText(/^B/);
+    await expect
+      .poll(() => canvasSnapshot('#host canvas'))
+      .not.toBe(firstFrame);
     expect(
       await separateConsumer.evaluate(() => window.testPlayer.getCurrentTime()),
     ).toBeCloseTo(0.2, 2);
