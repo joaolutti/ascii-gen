@@ -66,14 +66,21 @@ const player = `(function (global) {
     const container = options.container;
     const doc = container.ownerDocument;
     const wrapper = doc.createElement('div');
-    const output = doc.createElement('pre');
+    const output = doc.createElement('canvas');
     const controls = doc.createElement('div');
     const button = doc.createElement('button');
     const label = doc.createElement('label');
     const loop = doc.createElement('input');
     wrapper.style.cssText = 'width:100%;';
+    output.width = data.width;
+    output.height = data.height;
     output.setAttribute('aria-label', options.label || 'ASCII video frame');
-    output.style.cssText = 'box-sizing:border-box;margin:0;overflow:hidden;white-space:pre;aspect-ratio:' + data.width + '/' + data.height + ';font-family:monospace;font-size:' + data.fontSize + 'px;line-height:' + data.cellHeight + 'px;letter-spacing:0;padding:0;color:' + data.foreground + ';background-color:' + data.background + ';';
+    output.style.cssText = 'display:block;box-sizing:border-box;margin:0;overflow:hidden;background-color:' + data.background + ';';
+    const context = output.getContext('2d');
+    if (!context) fail();
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    context.font = data.fontSize + 'px monospace';
     controls.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin-top:.5rem;';
     button.type = 'button';
     button.textContent = 'Play';
@@ -102,24 +109,24 @@ const player = `(function (global) {
       if (index === frameIndex) return;
       frameIndex = index;
       const frame = data.frames[index];
-      if (!frame.colors) { output.textContent = frame.rows.join('\\n'); return; }
-      const fragment = doc.createDocumentFragment();
+      context.fillStyle = data.background;
+      context.fillRect(0, 0, data.width, data.height);
       for (let y = 0; y < data.rows; y++) {
         for (let x = 0; x < data.columns; x++) {
-          const span = doc.createElement('span');
-          span.style.color = '#' + frame.colors[y].slice(x * 6, x * 6 + 6);
-          span.textContent = frame.rows[y][x];
-          fragment.append(span);
+          context.fillStyle = frame.colors
+            ? '#' + frame.colors[y].slice(x * 6, x * 6 + 6)
+            : data.foreground;
+          context.fillText(
+            frame.rows[y][x],
+            x * data.cellWidth,
+            (y + 1) * data.cellHeight,
+          );
         }
-        if (y + 1 < data.rows) fragment.append(doc.createTextNode('\\n'));
       }
-      output.replaceChildren(fragment);
     };
     const syncSize = () => {
       const available = wrapper.clientWidth;
       const scale = Math.min(1, available / data.width);
-      output.style.fontSize = (data.fontSize * scale) + 'px';
-      output.style.lineHeight = (data.cellHeight * scale) + 'px';
       output.style.width = (data.width * scale) + 'px';
       output.style.height = (data.height * scale) + 'px';
     };
