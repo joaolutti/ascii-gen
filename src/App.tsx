@@ -61,6 +61,7 @@ const defaultPixelatedTreatment: Treatment = {
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
+  const pendingWorkerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
   const playbackTimeRef = useRef(0);
   const codeBundleOperationIdRef = useRef(0);
@@ -72,6 +73,7 @@ export default function App() {
   const [canExport, setCanExport] = useState(false);
   const [canGenerateBundle, setCanGenerateBundle] = useState(false);
   const [generatingBundle, setGeneratingBundle] = useState(false);
+  const [checkingReplacement, setCheckingReplacement] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState('');
@@ -85,6 +87,8 @@ export default function App() {
     Pixelated: defaultPixelatedTreatment,
   });
   const treatment = treatments[mode];
+  const treatmentRef = useRef(treatment);
+  treatmentRef.current = treatment;
   const setTreatment = (update: (current: Treatment) => Treatment) =>
     setTreatments((current) => ({
       ...current,
@@ -94,6 +98,7 @@ export default function App() {
   useEffect(() => {
     return () => {
       releaseWorker(workerRef.current);
+      releaseWorker(pendingWorkerRef.current);
     };
   }, []);
 
@@ -142,96 +147,148 @@ export default function App() {
   }, [currentTime, duration, exporting, treatment]);
 
   const chooseFile = (file?: File) => {
-    if (!file || exporting) return;
-    releaseWorker(workerRef.current);
-    workerRef.current = null;
-    previewSequenceRef.current = 0;
-    setDownloadUrl((url) => {
-      if (url) URL.revokeObjectURL(url);
-      return '';
-    });
-    setBundleUrl('');
-    setName(file.name);
-    setCanExport(false);
-    setCanGenerateBundle(false);
-    setGeneratingBundle(false);
-    activeCodeBundleRef.current = undefined;
-    codeBundleOperationIdRef.current++;
-    setExporting(false);
-    setProgress(0);
-    setDuration(0);
-    setCurrentTime(0);
-    playbackTimeRef.current = 0;
-    setPlaying(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
+    if (!file || exporting || generatingBundle) return;
     if (file.size > 100_000_000) {
       setMessage(
         'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
       );
       return;
     }
-    setMessage('Reading source video locally…');
+    if (pendingWorkerRef.current) releaseWorker(pendingWorkerRef.current);
+    setCheckingReplacement(true);
+    setMessage('Checking replacement video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
     });
-    workerRef.current = worker;
+    pendingWorkerRef.current = worker;
+    let initialPreview: ImageBitmap | undefined;
+    let ready = false;
+    const reject = (reason: string) => {
+      if (pendingWorkerRef.current !== worker) return;
+      pendingWorkerRef.current = null;
+      setCheckingReplacement(false);
+      initialPreview?.close();
+      releaseWorker(worker);
+      setMessage(reason);
+    };
+    worker.onerror = () =>
+      reject('This file could not be read as a supported video. Choose an H.264 MP4.');
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const reply = event.data;
-      if (workerRef.current !== worker) {
+      if (pendingWorkerRef.current !== worker) {
         if (reply.type === 'preview') reply.bitmap.close();
-        if (reply.type === 'disposed') worker.terminate();
         return;
       }
       if (reply.type === 'preview') {
-        if (reply.sequence !== previewSequenceRef.current) {
-          reply.bitmap.close();
-          return;
+        initialPreview?.close();
+        initialPreview = reply.bitmap;
+        return;
+      }
+      if (reply.type === 'error') {
+        reject(reply.message);
+        return;
+      }
+      if (reply.type !== 'ready' || ready || !initialPreview) return;
+      ready = true;
+      const previous = workerRef.current;
+      workerRef.current = worker;
+      pendingWorkerRef.current = null;
+      setCheckingReplacement(false);
+      if (previous) releaseWorker(previous);
+      previewSequenceRef.current = 0;
+      activeCodeBundleRef.current = undefined;
+      codeBundleOperationIdRef.current++;
+      setDownloadUrl((url) => {
+        if (url) URL.revokeObjectURL(url);
+        return '';
+      });
+      setBundleUrl('');
+      setName(file.name);
+      setCanExport(false);
+      setCanGenerateBundle(typeof CompressionStream === 'function');
+      setGeneratingBundle(false);
+      setDuration(reply.duration);
+      setCurrentTime(0);
+      playbackTimeRef.current = 0;
+      setPlaying(false);
+      setProgress(0);
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = initialPreview.width;
+        canvas.height = initialPreview.height;
+        canvas.getContext('2d')?.drawImage(initialPreview, 0, 0);
+      }
+      initialPreview.close();
+      initialPreview = undefined;
+      worker.onmessage = (activeEvent) => {
+        const activeReply = activeEvent.data;
+        if (activeReply.type === 'preview') {
+          if (activeReply.sequence !== previewSequenceRef.current) {
+            activeReply.bitmap.close();
+            return;
+          }
+          const activeCanvas = canvasRef.current;
+          if (activeCanvas) {
+            activeCanvas.width = activeReply.bitmap.width;
+            activeCanvas.height = activeReply.bitmap.height;
+            activeCanvas.getContext('2d')?.drawImage(activeReply.bitmap, 0, 0);
+            activeReply.bitmap.close();
+          }
+        } else if (activeReply.type === 'ready') {
+          // The active worker already sent its readiness reply at commit time.
+        } else if (activeReply.type === 'disposed') {
+          worker.terminate();
+        } else {
+          handleActiveReply(activeReply);
         }
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = reply.bitmap.width;
-          canvas.height = reply.bitmap.height;
-          canvas.getContext('2d')?.drawImage(reply.bitmap, 0, 0);
-          reply.bitmap.close();
-        }
-        setName(reply.name);
-      } else if (reply.type === 'ready') {
-        setDuration(reply.duration);
-        playbackTimeRef.current = 0;
-        setMessage('Checking H.264 MP4 export on this device…');
-        const supportsZipDeflate = typeof CompressionStream === 'function';
-        setCanGenerateBundle(supportsZipDeflate);
+      };
+      previewSequenceRef.current = 1;
+      worker.postMessage({
+        type: 'preview',
+        timestamp: 0,
+        sequence: previewSequenceRef.current,
+        treatment: treatmentRef.current,
+      });
+      setMessage('Source video ready. Checking MP4 encoding support…');
         void (async () => {
-          const supported =
-            typeof VideoEncoder !== 'undefined' &&
-            (
-              await VideoEncoder.isConfigSupported({
-                codec: 'avc1.42001f',
-                width: reply.width,
-                height: reply.height,
-                bitrate: 1_500_000,
-                framerate: 30,
-              })
-            ).supported === true;
+          let supported = false;
+          try {
+            supported = typeof VideoEncoder !== 'undefined' &&
+              (await VideoEncoder.isConfigSupported({
+                codec: 'avc1.42001f', width: reply.width, height: reply.height,
+                bitrate: 1_500_000, framerate: 30,
+              })).supported === true;
+          } catch {
+            supported = false;
+          }
           if (workerRef.current !== worker) return;
           setCanExport(supported);
-          setMessage(
-            !supportsZipDeflate
-              ? 'This browser cannot create compressed ASCII code bundles. Use a current desktop Chrome or Edge browser.'
-              : supported
-                ? 'Classic characters · white on near-black'
-                : 'This browser cannot encode H.264 MP4 on this device.',
-          );
-        })().catch(() => {
-          if (workerRef.current !== worker) return;
-          setCanExport(false);
-          setMessage('This browser cannot encode H.264 MP4 on this device.');
-        });
-      } else if (reply.type === 'progress') {
+          if (!supported) setMessage('Source video ready. This browser cannot encode H.264 MP4 on this device.');
+          else setMessage('Source video ready.');
+        })();
+    };
+    const testOptions = new URLSearchParams(window.location.search);
+    worker.postMessage({
+      type: 'load',
+      file,
+      testExportFailure:
+        import.meta.env.DEV && testOptions.has('testExportFailure'),
+      testExportDelay: import.meta.env.DEV
+        ? Number(testOptions.get('testExportDelay') ?? 0)
+        : 0,
+      testCodeBundleFailure:
+        import.meta.env.DEV && testOptions.has('testCodeBundleFailure'),
+      testCodeBundleDelay: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleDelay') ?? 0)
+        : 0,
+      testCodeBundleLimitAfterFrames: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleLimitAfterFrames') ?? 0)
+        : 0,
+    });
+  };
+
+  const handleActiveReply = (reply: WorkerReply) => {
+      if (reply.type === 'progress') {
         if (reply.operationId !== activeExportRef.current) return;
         setProgress(reply.value);
       } else if (reply.type === 'done') {
@@ -295,25 +352,6 @@ export default function App() {
             : `Export failed: ${reply.message} You can try again.`,
         );
       }
-    };
-    const testOptions = new URLSearchParams(window.location.search);
-    worker.postMessage({
-      type: 'load',
-      file,
-      testExportFailure:
-        import.meta.env.DEV && testOptions.has('testExportFailure'),
-      testExportDelay: import.meta.env.DEV
-        ? Number(testOptions.get('testExportDelay') ?? 0)
-        : 0,
-      testCodeBundleFailure:
-        import.meta.env.DEV && testOptions.has('testCodeBundleFailure'),
-      testCodeBundleDelay: import.meta.env.DEV
-        ? Number(testOptions.get('testCodeBundleDelay') ?? 0)
-        : 0,
-      testCodeBundleLimitAfterFrames: import.meta.env.DEV
-        ? Number(testOptions.get('testCodeBundleLimitAfterFrames') ?? 0)
-        : 0,
-    });
   };
 
   const exportVideo = () => {
@@ -361,7 +399,7 @@ export default function App() {
     setTreatment(() =>
       mode === 'ASCII' ? defaultTreatment : defaultPixelatedTreatment,
     );
-  const controlsDisabled = exporting || generatingBundle;
+  const controlsDisabled = exporting || generatingBundle || checkingReplacement;
 
   return (
     <main className={styles.page}>
