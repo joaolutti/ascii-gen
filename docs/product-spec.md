@@ -48,6 +48,7 @@ Use a minimal, understated aesthetic with neutral surfaces and simple controls. 
 - Loop the preview, with pause and scrubbing available.
 - Update the appearance live as parameters change.
 - Let users choose ASCII characters or brightness-sized square cells as the render mode.
+- Keep each render mode's density or grid step, spacing, tonal controls, and colors independent; Reset restores only the active mode.
 - Provide clear **Replace video**, **Reset controls**, and **Generate & download MP4** actions.
 - Retain the selected style when replacing the source video.
 - Match the exported composition, colors, and character density in the preview.

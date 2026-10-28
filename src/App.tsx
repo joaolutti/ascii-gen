@@ -51,6 +51,13 @@ const defaultTreatment: Treatment = {
   sourceColor: false,
 };
 
+const defaultPixelatedTreatment: Treatment = {
+  ...defaultTreatment,
+  mode: 'Pixelated',
+  foreground: '#ffb547',
+  background: '#000000',
+};
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -72,7 +79,17 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [treatment, setTreatment] = useState(defaultTreatment);
+  const [mode, setMode] = useState<RenderMode>('ASCII');
+  const [treatments, setTreatments] = useState<Record<RenderMode, Treatment>>({
+    ASCII: defaultTreatment,
+    Pixelated: defaultPixelatedTreatment,
+  });
+  const treatment = treatments[mode];
+  const setTreatment = (update: (current: Treatment) => Treatment) =>
+    setTreatments((current) => ({
+      ...current,
+      [mode]: update(current[mode]),
+    }));
 
   useEffect(() => {
     return () => {
@@ -340,7 +357,10 @@ export default function App() {
     workerRef.current?.postMessage({ type: 'cancel-code-bundle', operationId });
   };
 
-  const resetControls = () => setTreatment(defaultTreatment);
+  const resetControls = () =>
+    setTreatment(() =>
+      mode === 'ASCII' ? defaultTreatment : defaultPixelatedTreatment,
+    );
   const controlsDisabled = exporting || generatingBundle;
 
   return (
@@ -363,7 +383,7 @@ export default function App() {
             {name ? (
               <canvas
                 ref={canvasRef}
-                aria-label={treatment.mode === 'ASCII' ? 'ASCII preview' : 'Pixelated preview'}
+                aria-label={mode === 'ASCII' ? 'ASCII preview' : 'Pixelated preview'}
               />
             ) : (
               <div className={styles.empty}>
@@ -432,23 +452,16 @@ export default function App() {
             id="render-mode"
             aria-label="Render mode"
             className={styles.select}
-            value={treatment.mode}
+            value={mode}
             disabled={controlsDisabled}
             onChange={(event) => {
-              const mode = event.currentTarget.value as RenderMode;
-              setTreatment((current) => ({
-                ...current,
-                mode,
-                ...(mode === 'Pixelated'
-                  ? { gridStep: 8, spacing: 25, foreground: '#ffb547', background: '#000000' }
-                  : { ...defaultTreatment, mode }),
-              }));
+              setMode(event.currentTarget.value as RenderMode);
             }}
           >
             <option value="ASCII">ASCII</option>
             <option value="Pixelated">Pixelated</option>
           </select>
-          {treatment.mode === 'ASCII' ? (
+          {mode === 'ASCII' ? (
             <>
           <p className={styles.eyebrow}>CHARACTER PRESET</p>
           <label className={styles.controlLabel} htmlFor="character-preset">
@@ -613,13 +626,62 @@ export default function App() {
               <label className={styles.rangeLabel} htmlFor="grid-step">
                 Grid step <span>{treatment.gridStep} px</span>
               </label>
-              <input id="grid-step" aria-label="Grid step" className={styles.range} type="range" min={4} max={40} step={4} value={treatment.gridStep} disabled={controlsDisabled} onChange={(event) => setTreatment((current) => ({ ...current, gridStep: Number(event.currentTarget.value) }))} />
+              <input
+                id="grid-step"
+                aria-label="Grid step"
+                className={styles.range}
+                type="range"
+                min={4}
+                max={40}
+                step={4}
+                value={treatment.gridStep}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const gridStep = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, gridStep }));
+                }}
+              />
               <p className={styles.note}>4–40 output pixels · default 8</p>
               <label className={styles.rangeLabel} htmlFor="spacing">
                 Cell spacing <span>{treatment.spacing}%</span>
               </label>
-              <input id="spacing" aria-label="Cell spacing" className={styles.range} type="range" min={0} max={75} step={5} value={treatment.spacing} disabled={controlsDisabled} onChange={(event) => setTreatment((current) => ({ ...current, spacing: Number(event.currentTarget.value) }))} />
+              <input
+                id="spacing"
+                aria-label="Cell spacing"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={75}
+                step={5}
+                value={treatment.spacing}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const spacing = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, spacing }));
+                }}
+              />
               <p className={styles.note}>0–75% cell spacing · default 25%</p>
+              <label className={styles.rangeLabel} htmlFor="brightness">
+                Brightness <span>{treatment.brightness}</span>
+              </label>
+              <input id="brightness" aria-label="Brightness" className={styles.range} type="range" min={-100} max={100} step={1} value={treatment.brightness} disabled={controlsDisabled} onChange={(event) => { const brightness = Number(event.currentTarget.value); setTreatment((current) => ({ ...current, brightness })); }} />
+              <label className={styles.rangeLabel} htmlFor="contrast">
+                Contrast <span>{treatment.contrast}%</span>
+              </label>
+              <input id="contrast" aria-label="Contrast" className={styles.range} type="range" min={0} max={200} step={1} value={treatment.contrast} disabled={controlsDisabled} onChange={(event) => { const contrast = Number(event.currentTarget.value); setTreatment((current) => ({ ...current, contrast })); }} />
+              <label className={styles.checkboxLabel}>
+                <input aria-label="Invert brightness mapping" type="checkbox" checked={treatment.inverted} disabled={controlsDisabled} onChange={(event) => { const inverted = event.currentTarget.checked; setTreatment((current) => ({ ...current, inverted })); }} />
+                Invert brightness mapping
+              </label>
+              <p className={styles.eyebrow}>COLORS</p>
+              <label className={styles.colorLabel} htmlFor="foreground-color">
+                Foreground color
+                <input id="foreground-color" aria-label="Foreground color" type="color" value={treatment.foreground} disabled={controlsDisabled} onChange={(event) => { const foreground = event.currentTarget.value; setTreatment((current) => ({ ...current, foreground })); }} />
+              </label>
+              <label className={styles.colorLabel} htmlFor="background-color">
+                Background color
+                <input id="background-color" aria-label="Background color" type="color" value={treatment.background} disabled={controlsDisabled} onChange={(event) => { const background = event.currentTarget.value; setTreatment((current) => ({ ...current, background })); }} />
+              </label>
               <p className={styles.note}>Brightness determines the size of each square cell.</p>
             </>
           )}
@@ -641,7 +703,7 @@ export default function App() {
           <button
             type="button"
             className={styles.export}
-            disabled={!canGenerateBundle || controlsDisabled || treatment.mode !== 'ASCII'}
+            disabled={!canGenerateBundle || controlsDisabled || mode !== 'ASCII'}
             onClick={generateCodeBundle}
           >
             Generate ASCII code bundle
