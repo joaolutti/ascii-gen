@@ -17,6 +17,10 @@ The workflow fixture is generated with `npm run fixture` (requires FFmpeg). Use 
 
 Export requires browser WebCodecs H.264 encoding. Unsupported browsers report this and do not offer a fallback.
 
+## ASCII code output
+
+The editor can also export a standalone, version 1 bundle with full character grids, an offline HTML example, and a reusable JavaScript player. It requires local H.264 decoding and browser raw-DEFLATE support; H.264 MP4 encoding is a separate capability. The limits, recorded measurement cases, data contract, player lifecycle, and integration instructions are in [the code output guide](docs/code-output.md).
+
 Source admission uses the media track's actual metadata. Duration must be less than 15 seconds; width and height are
 compared in display orientation against 1920 × 1080 for landscape/square and 1080 × 1920 for portrait; the measured
 maximum frame rate must be at most 60 fps. The file size limit is decimal: 100 MB means 100,000,000 bytes, inclusive.

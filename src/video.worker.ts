@@ -10,6 +10,12 @@ import {
   ALL_FORMATS,
 } from 'mediabunny';
 import type { CharacterPreset, Treatment } from './treatment';
+import {
+  codeBundleLimits,
+  createExampleHtml,
+  createZip,
+  playerJavaScript,
+} from './codeBundle';
 
 type Request =
   | {
@@ -17,6 +23,9 @@ type Request =
       file: File;
       testExportFailure?: boolean;
       testExportDelay?: number;
+      testCodeBundleFailure?: boolean;
+      testCodeBundleDelay?: number;
+      testCodeBundleLimitAfterFrames?: number;
     }
   | {
       type: 'preview';
@@ -25,7 +34,9 @@ type Request =
       treatment: Treatment;
     }
   | { type: 'export'; treatment: Treatment }
+  | { type: 'code-bundle'; treatment: Treatment; operationId: number }
   | { type: 'cancel-export' }
+  | { type: 'cancel-code-bundle'; operationId: number }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
 const chars =
@@ -64,6 +75,24 @@ let didTestExportFail = false;
 
 let testExportDelay = 0;
 let testExportFailure = false;
+let testCodeBundleDelay = 0;
+let testCodeBundleFailure = false;
+let testCodeBundleLimitAfterFrames = 0;
+let didTestCodeBundleLimitFailure = false;
+let didTestCodeBundleFail = false;
+let activeCodeBundleId: number | undefined;
+let canceledCodeBundleId: number | undefined;
+let activeCodeBundleFrames:
+  | Array<{
+      timestamp: number;
+      duration: number;
+      rows: string[];
+      colors?: string[];
+    }>
+  | undefined;
+
+const oversizedCodeBundleMessage =
+  'This ASCII bundle exceeds the safe export limits. Lower Density in the editor and generate it again; duration, frame rate, and color fidelity are never reduced automatically.';
 
 function yieldToWorkerMessages() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -89,6 +118,18 @@ function drawAscii(
   const rows = Math.max(1, Math.round(((cols * height) / width) * 0.55));
   const cellW = target.width / cols;
   const cellH = target.height / rows;
+  if (!treatment.sourceColor) {
+    context.fillStyle = treatment.background;
+    context.fillRect(0, 0, target.width, target.height);
+    context.fillStyle = treatment.foreground;
+    context.font = `${cellH}px monospace`;
+    context.textBaseline = 'top';
+    const lines = extractCharacterRows(sample, treatment);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < cols; x++)
+        context.fillText(lines[y]![x]!, x * cellW, y * cellH);
+    return;
+  }
   const source = new OffscreenCanvas(cols, rows);
   const sourceContext = source.getContext('2d', { willReadFrequently: true });
   if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
@@ -124,6 +165,65 @@ function drawAscii(
         : treatment.foreground;
       context.fillText(char, x * cellW, y * cellH);
     }
+}
+
+function extractCharacterRows(
+  sample: Parameters<typeof drawAscii>[0],
+  treatment: Treatment,
+) {
+  return extractCharacterGrid(sample, treatment).rows;
+}
+
+function extractCharacterGrid(
+  sample: Parameters<typeof drawAscii>[0],
+  treatment: Treatment,
+) {
+  const columns = treatment.density;
+  const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
+  const source = new OffscreenCanvas(columns, rows);
+  const sourceContext = source.getContext('2d', { willReadFrequently: true });
+  if (!sourceContext) throw new Error('Canvas 2D is unavailable.');
+  sample.draw(sourceContext, 0, 0, columns, rows);
+  const pixels = sourceContext.getImageData(0, 0, columns, rows).data;
+  const ramp = ramps[treatment.preset];
+  const output: string[] = [];
+  const colors: string[] = [];
+  for (let y = 0; y < rows; y++) {
+    let line = '';
+    let colorLine = '';
+    for (let x = 0; x < columns; x++) {
+      const offset = (y * columns + x) * 4;
+      let brightness =
+        (pixels[offset] * 0.2126 +
+          pixels[offset + 1] * 0.7152 +
+          pixels[offset + 2] * 0.0722) /
+        255;
+      brightness =
+        (brightness - 0.5) * (treatment.contrast / 100) +
+        0.5 +
+        treatment.brightness / 100;
+      brightness = Math.max(0, Math.min(1, brightness));
+      if (treatment.inverted) brightness = 1 - brightness;
+      line +=
+        treatment.preset === 'Binary' && brightness < 0.18
+          ? ' '
+          : ramp[
+              Math.min(ramp.length - 1, Math.floor(brightness * ramp.length))
+            ];
+      if (treatment.sourceColor) {
+        const red = pixels[offset]!.toString(16).padStart(2, '0');
+        const green = pixels[offset + 1]!.toString(16).padStart(2, '0');
+        const blue = pixels[offset + 2]!.toString(16).padStart(2, '0');
+        colorLine += red + green + blue;
+      }
+    }
+    output.push(line);
+    if (treatment.sourceColor) colors.push(colorLine);
+  }
+  return {
+    rows: output,
+    ...(treatment.sourceColor ? { colors } : {}),
+  };
 }
 
 function outputDimensions(sourceWidth: number, sourceHeight: number) {
@@ -355,10 +455,194 @@ async function exportMp4(treatment: Treatment) {
   }
 }
 
+async function exportCodeBundle(treatment: Treatment, operationId: number) {
+  if (activeCodeBundleId !== undefined)
+    throw new Error('Another ASCII bundle generation is already active.');
+  activeCodeBundleId = operationId;
+  canceledCodeBundleId = undefined;
+  const isCanceled = () => canceledCodeBundleId === operationId;
+  const finishCanceled = () => {
+    if (activeCodeBundleId === operationId) {
+      if (activeCodeBundleFrames) activeCodeBundleFrames.length = 0;
+      activeCodeBundleFrames = undefined;
+    }
+    if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
+    scope.postMessage({ type: 'code-bundle-canceled', operationId });
+  };
+  if (!file || !track || !sink || !canvas)
+    throw new Error('Choose a source video first.');
+  if (
+    !/^#[\da-f]{6}$/i.test(treatment.foreground) ||
+    !/^#[\da-f]{6}$/i.test(treatment.background)
+  )
+    throw new Error('Choose valid foreground and background colors.');
+  const columns = treatment.density;
+  const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
+  const cellWidth = canvas.width / columns;
+  const cellHeight = canvas.height / rows;
+  const frameRate = Math.min(30, sourceFrameRate);
+  const step = 1 / frameRate;
+  const frameCount = Math.ceil(duration * frameRate);
+  const cellsPerFrame = columns * rows;
+  const cells = cellsPerFrame * frameCount;
+  // JSON escaping can double the character payload; RGB cells add six hex
+  // digits. The decoded-data estimate accounts for UTF-16 strings and row /
+  // frame arrays retained while the package is assembled.
+  const jsonBytesPerCell = treatment.sourceColor ? 8 : 2;
+  const decodedBytesPerCell = treatment.sourceColor ? 14 : 2;
+  const estimatedJsonBytes =
+    2_000 + frameCount * (200 + rows * 6) + cells * jsonBytesPerCell;
+  const estimatedDecodedBytes =
+    cells * decodedBytesPerCell + frameCount * (rows * 32 + 256);
+  if (
+    frameCount > codeBundleLimits.maxFrames ||
+    cellsPerFrame > codeBundleLimits.maxCellsPerFrame ||
+    cells > codeBundleLimits.maxTotalCells ||
+    estimatedJsonBytes > codeBundleLimits.maxJsonBytes ||
+    estimatedDecodedBytes > codeBundleLimits.maxDecodedFrameDataBytes
+  )
+    throw new Error(oversizedCodeBundleMessage);
+  const firstTimestamp = await track.getFirstTimestamp();
+  const frames: Array<{
+    timestamp: number;
+    duration: number;
+    rows: string[];
+    colors?: string[];
+  }> = [];
+  activeCodeBundleFrames = frames;
+  let estimatedJsonBytesUsed = 2_000 + frameCount * 200;
+  let generatedCells = 0;
+  let estimatedDecodedBytesUsed = 0;
+  for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+    if (isCanceled()) {
+      finishCanceled();
+      return;
+    }
+    const timestamp = frameIndex * step;
+    if (timestamp >= duration) break;
+    const frameCells = columns * rows;
+    const frameJsonEstimate = frameCells * jsonBytesPerCell + rows * 6 + 200;
+    const frameDecodedEstimate =
+      frameCells * decodedBytesPerCell + rows * 32 + 256;
+    if (
+      frameCells > codeBundleLimits.maxCellsPerFrame ||
+      generatedCells + frameCells > codeBundleLimits.maxTotalCells ||
+      estimatedJsonBytesUsed + frameJsonEstimate >
+        codeBundleLimits.maxJsonBytes ||
+      estimatedDecodedBytesUsed + frameDecodedEstimate >
+        codeBundleLimits.maxDecodedFrameDataBytes
+    )
+      throw new Error(oversizedCodeBundleMessage);
+    const sample = await sink.getSample(firstTimestamp + timestamp);
+    if (!sample)
+      throw new Error(
+        `Could not decode the frame at ${timestamp.toFixed(3)} seconds.`,
+      );
+    try {
+      const grid = extractCharacterGrid(sample, treatment);
+      frames.push({
+        timestamp,
+        duration: Math.min(step, duration - timestamp),
+        rows: grid.rows,
+        ...(grid.colors ? { colors: grid.colors } : {}),
+      });
+      generatedCells += frameCells;
+      estimatedJsonBytesUsed += frameJsonEstimate;
+      estimatedDecodedBytesUsed += frameDecodedEstimate;
+    } finally {
+      sample.close();
+    }
+    scope.postMessage({
+      type: 'code-bundle-progress',
+      operationId,
+      value: Math.min(0.95, (frameIndex + 1) / frameCount),
+      completedFrames: frameIndex + 1,
+      totalFrames: frameCount,
+    });
+    if (testCodeBundleFailure && !didTestCodeBundleFail && frameIndex === 1) {
+      didTestCodeBundleFail = true;
+      throw new Error('Controlled ASCII bundle failure for recovery testing.');
+    }
+    if (
+      testCodeBundleLimitAfterFrames > 0 &&
+      !didTestCodeBundleLimitFailure &&
+      frameIndex + 1 >= testCodeBundleLimitAfterFrames
+    ) {
+      didTestCodeBundleLimitFailure = true;
+      frames.length = 0;
+      throw new Error(oversizedCodeBundleMessage);
+    }
+    if (testCodeBundleDelay > 0)
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, testCodeBundleDelay),
+      );
+    else await yieldToWorkerMessages();
+    if (isCanceled()) {
+      finishCanceled();
+      return;
+    }
+  }
+  const data = {
+    version: 1,
+    width: canvas.width,
+    height: canvas.height,
+    columns,
+    rows,
+    cellWidth,
+    cellHeight,
+    fontSize: cellHeight,
+    foreground: treatment.foreground,
+    background: treatment.background,
+    duration,
+    frames,
+  };
+  const dataJson = JSON.stringify(data);
+  if (
+    new TextEncoder().encode(dataJson).byteLength >
+    codeBundleLimits.maxJsonBytes
+  )
+    throw new Error(oversizedCodeBundleMessage);
+  const readme =
+    'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline, starts paused, and includes labeled Play/Pause and Loop controls.\n\nFiles: index.html is the runnable example; player.js is the reusable public player; data.json contains versioned row-major character frames. The player has no editor, source-video, build-tool, runtime-library, or external-font dependency.\n\nSeparate application setup: copy player.js and data.json into your app, load player.js with a script tag, fetch or import data.json, find a container element, then call AsciiVideoPlayer.mount({container, data}). mount creates its own frame and labeled controls, so the bundled example markup is not required. The returned instance provides play(), pause(), seek(seconds), setLoop(enabled), getCurrentTime(), element, and dispose(). seek accepts seconds from 0 through the recorded duration; at the duration boundary it displays the final frame. setLoop controls whether playback wraps at the recorded duration. options.loop defaults to true.\n\nSizing: the frame scales down to fit the container width while preserving source aspect ratio and cell proportions. It never enlarges beyond its generated dimensions. Resizing changes presentation size; data rows, columns, and logical cell geometry remain unchanged.\n\nAutoplay is off by default. To opt in, pass autoplay: true; the player suppresses this unsolicited playback when prefers-reduced-motion is reduce. The user can still start deliberate playback. dispose() stops its animation frame, disconnects its resize observer, removes its event listener, and removes the mounted player element. Call it when removing the player.\n\nData compatibility: version 1 supports fixed-color frames (rows only, using foreground) and source-color frames (rows plus six-digit RGB colors per cell). The background color is independent in both modes. The output uses the browser monospace system font, so glyph shape and spacing can differ across systems.\n\nLimits: at most 28,000 cells in one frame, 7,200,000 cells total, 450 frames, 5,000,000 bytes of data.json, a 32,000,000-byte decoded-data estimate, and a 12,000,000-byte ZIP. Oversized work is rejected with lower-Density guidance; the generator never changes Density, cadence, duration, or color fidelity automatically.\n\nCapability separation: code generation requires supported H.264 decoding and raw DEFLATE ZIP support. It does not require H.264 MP4 encoding. The source video is not included in this archive.\n';
+  const indexHtml = createExampleHtml(data);
+  // All generated content is ASCII. String length is therefore a safe
+  // preflight upper bound on UTF-8 bytes before ZIP buffers are allocated.
+  const estimatedBundleBytes =
+    indexHtml.length +
+    dataJson.length +
+    playerJavaScript.length +
+    readme.length +
+    512;
+  if (estimatedBundleBytes > codeBundleLimits.maxBundleBytes)
+    throw new Error(oversizedCodeBundleMessage);
+  const zip = await createZip([
+    { name: 'index.html', content: indexHtml },
+    { name: 'player.js', content: playerJavaScript },
+    { name: 'data.json', content: dataJson },
+    { name: 'README.txt', content: readme },
+  ]);
+  if (zip.size > codeBundleLimits.maxBundleBytes)
+    throw new Error(oversizedCodeBundleMessage);
+  if (isCanceled()) {
+    finishCanceled();
+    return;
+  }
+  const bytes = await zip.arrayBuffer();
+  if (isCanceled()) {
+    finishCanceled();
+    return;
+  }
+  scope.postMessage({ type: 'code-bundle-done', operationId, bytes }, [bytes]);
+  if (activeCodeBundleId === operationId) activeCodeBundleFrames = undefined;
+  if (activeCodeBundleId === operationId) activeCodeBundleId = undefined;
+}
+
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
     exportCanceled = true;
+    if (activeCodeBundleId !== undefined)
+      canceledCodeBundleId = activeCodeBundleId;
     void activeOutput?.cancel();
     input?.dispose();
     input = undefined;
@@ -374,10 +658,24 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     testExportDelay = import.meta.env.DEV ? (request.testExportDelay ?? 0) : 0;
     testExportFailure =
       import.meta.env.DEV && request.testExportFailure === true;
+    testCodeBundleDelay = import.meta.env.DEV
+      ? (request.testCodeBundleDelay ?? 0)
+      : 0;
+    testCodeBundleFailure =
+      import.meta.env.DEV && request.testCodeBundleFailure === true;
+    testCodeBundleLimitAfterFrames = import.meta.env.DEV
+      ? Math.max(0, Math.floor(request.testCodeBundleLimitAfterFrames ?? 0))
+      : 0;
   }
   if (request.type === 'cancel-export') {
     exportCanceled = true;
     void activeOutput?.cancel();
+    return;
+  }
+  if (request.type === 'cancel-code-bundle') {
+    if (activeCodeBundleId === request.operationId) {
+      canceledCodeBundleId = request.operationId;
+    }
     return;
   }
   if (request.type === 'preview') {
@@ -391,8 +689,17 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       ? load(request.file)
       : request.type === 'export'
         ? exportMp4(request.treatment)
-        : Promise.resolve();
+        : request.type === 'code-bundle'
+          ? exportCodeBundle(request.treatment, request.operationId)
+          : Promise.resolve();
   task.catch((error: unknown) => {
+    if (request.type === 'code-bundle') {
+      if (activeCodeBundleId === request.operationId)
+        activeCodeBundleId = undefined;
+      if (activeCodeBundleFrames) activeCodeBundleFrames.length = 0;
+      activeCodeBundleFrames = undefined;
+      if (canceledCodeBundleId === request.operationId) return;
+    }
     if (request.type === 'load') {
       input?.dispose();
       input = undefined;
@@ -403,6 +710,9 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     }
     scope.postMessage({
       type: 'error',
+      ...(request.type === 'code-bundle'
+        ? { operationId: request.operationId }
+        : {}),
       message:
         error instanceof Error ? error.message : 'Video processing failed.',
     });

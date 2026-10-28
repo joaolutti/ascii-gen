@@ -63,6 +63,7 @@ Use a minimal, understated aesthetic with neutral surfaces and simple controls. 
 - Show progress and a Cancel action. Temporarily lock editing during export.
 - Preserve settings after cancellation or failure.
 - Show a download button on success and allow another export after further adjustments.
+- Offer versioned ASCII code output as a separate local generation path. Its standalone player, data contract, limits, measurement record, and integration guidance are documented in [code-output.md](code-output.md).
 
 ## Session and deferred scope
 

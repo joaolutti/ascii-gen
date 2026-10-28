@@ -23,9 +23,18 @@ type WorkerReply =
       totalFrames: number;
     }
   | { type: 'done'; bytes: ArrayBuffer }
+  | {
+      type: 'code-bundle-progress';
+      operationId: number;
+      value: number;
+      completedFrames: number;
+      totalFrames: number;
+    }
+  | { type: 'code-bundle-done'; operationId: number; bytes: ArrayBuffer }
+  | { type: 'code-bundle-canceled'; operationId: number }
   | { type: 'canceled' }
   | { type: 'disposed' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; operationId?: number };
 
 const defaultTreatment: Treatment = {
   density: 88,
@@ -43,12 +52,17 @@ export default function App() {
   const workerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
   const playbackTimeRef = useRef(0);
+  const codeBundleOperationIdRef = useRef(0);
+  const activeCodeBundleRef = useRef<number | undefined>(undefined);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
   const [canExport, setCanExport] = useState(false);
+  const [canGenerateBundle, setCanGenerateBundle] = useState(false);
+  const [generatingBundle, setGeneratingBundle] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [bundleUrl, setBundleUrl] = useState('');
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -65,6 +79,7 @@ export default function App() {
       if (url) URL.revokeObjectURL(url);
       return '';
     });
+    setBundleUrl('');
   }, [treatment]);
 
   useEffect(
@@ -73,6 +88,11 @@ export default function App() {
     },
     [downloadUrl],
   );
+
+  useEffect(() => {
+    if (!bundleUrl) return;
+    return () => URL.revokeObjectURL(bundleUrl);
+  }, [bundleUrl]);
 
   useEffect(() => {
     if (!playing || !duration || exporting) return;
@@ -107,8 +127,13 @@ export default function App() {
       if (url) URL.revokeObjectURL(url);
       return '';
     });
+    setBundleUrl('');
     setName(file.name);
     setCanExport(false);
+    setCanGenerateBundle(false);
+    setGeneratingBundle(false);
+    activeCodeBundleRef.current = undefined;
+    codeBundleOperationIdRef.current++;
     setExporting(false);
     setProgress(0);
     setDuration(0);
@@ -155,6 +180,8 @@ export default function App() {
         setDuration(reply.duration);
         playbackTimeRef.current = 0;
         setMessage('Checking H.264 MP4 export on this device…');
+        const supportsZipDeflate = typeof CompressionStream === 'function';
+        setCanGenerateBundle(supportsZipDeflate);
         void (async () => {
           const supported =
             typeof VideoEncoder !== 'undefined' &&
@@ -170,9 +197,11 @@ export default function App() {
           if (workerRef.current !== worker) return;
           setCanExport(supported);
           setMessage(
-            supported
-              ? 'Classic characters · white on near-black'
-              : 'This browser cannot encode H.264 MP4 on this device.',
+            !supportsZipDeflate
+              ? 'This browser cannot create compressed ASCII code bundles. Use a current desktop Chrome or Edge browser.'
+              : supported
+                ? 'Classic characters · white on near-black'
+                : 'This browser cannot encode H.264 MP4 on this device.',
           );
         })().catch(() => {
           if (workerRef.current !== worker) return;
@@ -188,6 +217,28 @@ export default function App() {
         setDownloadUrl(url);
         setExporting(false);
         setMessage('Your silent ASCII video is ready.');
+      } else if (reply.type === 'code-bundle-progress') {
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        setProgress(reply.value);
+      } else if (reply.type === 'code-bundle-done') {
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        activeCodeBundleRef.current = undefined;
+        setGeneratingBundle(false);
+        setProgress(1);
+        const url = URL.createObjectURL(
+          new Blob([reply.bytes], { type: 'application/zip' }),
+        );
+        setBundleUrl(url);
+        setMessage('Your ASCII code bundle is ready. Download requested.');
+        requestDownload(url, 'ascii-code-bundle.zip');
+      } else if (reply.type === 'code-bundle-canceled') {
+        if (activeCodeBundleRef.current !== reply.operationId) return;
+        activeCodeBundleRef.current = undefined;
+        setGeneratingBundle(false);
+        setProgress(0);
+        setMessage(
+          'Generation canceled. Your source video and settings are ready to try again.',
+        );
       } else if (reply.type === 'canceled') {
         setExporting(false);
         setProgress(0);
@@ -195,9 +246,23 @@ export default function App() {
           'Export canceled. Your source video and settings are ready.',
         );
       } else if (reply.type === 'error') {
+        if (
+          reply.operationId !== undefined &&
+          activeCodeBundleRef.current !== reply.operationId
+        )
+          return;
+        const failedBundle =
+          reply.operationId !== undefined &&
+          activeCodeBundleRef.current === reply.operationId;
+        if (failedBundle) activeCodeBundleRef.current = undefined;
+        setGeneratingBundle(false);
         setExporting(false);
         setProgress(0);
-        setMessage(`Export failed: ${reply.message} You can try again.`);
+        setMessage(
+          failedBundle
+            ? `Code generation failed: ${reply.message} You can try again.`
+            : `Export failed: ${reply.message} You can try again.`,
+        );
       }
     };
     const testOptions = new URLSearchParams(window.location.search);
@@ -208,6 +273,14 @@ export default function App() {
         import.meta.env.DEV && testOptions.has('testExportFailure'),
       testExportDelay: import.meta.env.DEV
         ? Number(testOptions.get('testExportDelay') ?? 0)
+        : 0,
+      testCodeBundleFailure:
+        import.meta.env.DEV && testOptions.has('testCodeBundleFailure'),
+      testCodeBundleDelay: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleDelay') ?? 0)
+        : 0,
+      testCodeBundleLimitAfterFrames: import.meta.env.DEV
+        ? Number(testOptions.get('testCodeBundleLimitAfterFrames') ?? 0)
         : 0,
     });
   };
@@ -224,11 +297,32 @@ export default function App() {
     workerRef.current?.postMessage({ type: 'export', treatment });
   };
 
+  const generateCodeBundle = () => {
+    setPlaying(false);
+    const operationId = ++codeBundleOperationIdRef.current;
+    activeCodeBundleRef.current = operationId;
+    setGeneratingBundle(true);
+    setProgress(0);
+    setMessage('Generating character data locally…');
+    workerRef.current?.postMessage({
+      type: 'code-bundle',
+      operationId,
+      treatment: { ...treatment },
+    });
+  };
+
   const cancelExport = () => {
     workerRef.current?.postMessage({ type: 'cancel-export' });
   };
 
+  const cancelCodeBundle = () => {
+    const operationId = activeCodeBundleRef.current;
+    if (operationId === undefined) return;
+    workerRef.current?.postMessage({ type: 'cancel-code-bundle', operationId });
+  };
+
   const resetControls = () => setTreatment(defaultTreatment);
+  const controlsDisabled = exporting || generatingBundle;
 
   return (
     <main className={styles.page}>
@@ -242,7 +336,7 @@ export default function App() {
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
-          if (!exporting) chooseFile(event.dataTransfer.files[0]);
+          if (!controlsDisabled) chooseFile(event.dataTransfer.files[0]);
         }}
       >
         <div className={styles.previewColumn}>
@@ -261,7 +355,7 @@ export default function App() {
               <button
                 type="button"
                 className={styles.playButton}
-                disabled={exporting}
+                disabled={controlsDisabled}
                 aria-label={playing ? 'Pause preview' : 'Play preview'}
                 onClick={() => setPlaying((value) => !value)}
               >
@@ -275,7 +369,7 @@ export default function App() {
                 max={duration}
                 step={0.01}
                 value={currentTime}
-                disabled={exporting}
+                disabled={controlsDisabled}
                 onChange={(event) => {
                   const time = Number(event.currentTarget.value);
                   playbackTimeRef.current = time;
@@ -296,7 +390,7 @@ export default function App() {
               aria-label="Choose source video"
               type="file"
               accept="video/mp4,.mp4"
-              disabled={exporting}
+              disabled={controlsDisabled}
               onChange={(event) => {
                 chooseFile(event.target.files?.[0]);
                 event.currentTarget.value = '';
@@ -317,7 +411,7 @@ export default function App() {
             aria-label="Character preset"
             className={styles.select}
             value={treatment.preset}
-            disabled={exporting}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const preset = event.currentTarget.value as CharacterPreset;
               setTreatment((current) => ({
@@ -346,7 +440,7 @@ export default function App() {
             max={160}
             step={8}
             value={treatment.density}
-            disabled={exporting}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const density = Number(event.currentTarget.value);
               setTreatment((current) => ({
@@ -368,7 +462,7 @@ export default function App() {
             max={100}
             step={1}
             value={treatment.brightness}
-            disabled={exporting}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const brightness = Number(event.currentTarget.value);
               setTreatment((current) => ({
@@ -390,7 +484,7 @@ export default function App() {
             max={200}
             step={1}
             value={treatment.contrast}
-            disabled={exporting}
+            disabled={controlsDisabled}
             onChange={(event) => {
               const contrast = Number(event.currentTarget.value);
               setTreatment((current) => ({
@@ -405,7 +499,7 @@ export default function App() {
               aria-label="Invert brightness mapping"
               type="checkbox"
               checked={treatment.inverted}
-              disabled={exporting}
+              disabled={controlsDisabled}
               onChange={(event) => {
                 const inverted = event.currentTarget.checked;
                 setTreatment((current) => ({
@@ -427,7 +521,7 @@ export default function App() {
               aria-label="Foreground color"
               type="color"
               value={treatment.foreground}
-              disabled={exporting}
+              disabled={controlsDisabled}
               onChange={(event) => {
                 const foreground = event.currentTarget.value;
                 setTreatment((current) => ({ ...current, foreground }));
@@ -441,7 +535,7 @@ export default function App() {
               aria-label="Background color"
               type="color"
               value={treatment.background}
-              disabled={exporting}
+              disabled={controlsDisabled}
               onChange={(event) => {
                 const background = event.currentTarget.value;
                 setTreatment((current) => ({ ...current, background }));
@@ -453,7 +547,7 @@ export default function App() {
               aria-label="Source-color mode"
               type="checkbox"
               checked={treatment.sourceColor}
-              disabled={exporting}
+              disabled={controlsDisabled}
               onChange={(event) => {
                 const sourceColor = event.currentTarget.checked;
                 setTreatment((current) => ({ ...current, sourceColor }));
@@ -468,17 +562,25 @@ export default function App() {
           <button
             type="button"
             className={styles.reset}
-            disabled={exporting}
+            disabled={controlsDisabled}
             onClick={resetControls}
           >
             Reset controls
           </button>
           <button
             className={styles.export}
-            disabled={!canExport || exporting}
+            disabled={!canExport || controlsDisabled}
             onClick={exportVideo}
           >
             Export MP4
+          </button>
+          <button
+            type="button"
+            className={styles.export}
+            disabled={!canGenerateBundle || controlsDisabled}
+            onClick={generateCodeBundle}
+          >
+            Generate ASCII code bundle
           </button>
           {exporting && (
             <div className={styles.exportStatus}>
@@ -493,6 +595,23 @@ export default function App() {
               </button>
             </div>
           )}
+          {generatingBundle && (
+            <div className={styles.exportStatus}>
+              <progress
+                aria-label="Generation progress"
+                max={1}
+                value={progress}
+              />
+              <span>Generating {Math.round(progress * 100)}% complete</span>
+              <button
+                type="button"
+                className={styles.cancel}
+                onClick={cancelCodeBundle}
+              >
+                Cancel generation
+              </button>
+            </div>
+          )}
           {downloadUrl && (
             <a
               className={styles.download}
@@ -500,6 +619,15 @@ export default function App() {
               download="ascii-video.mp4"
             >
               Download silent MP4
+            </a>
+          )}
+          {bundleUrl && (
+            <a
+              className={styles.download}
+              href={bundleUrl}
+              download="ascii-code-bundle.zip"
+            >
+              Save ASCII code bundle again
             </a>
           )}
           <p className={styles.note}>
@@ -522,4 +650,14 @@ function releaseWorker(worker: Worker | null) {
     }
   };
   worker.postMessage({ type: 'dispose' });
+}
+
+function requestDownload(url: string, filename: string) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  link.remove();
 }
