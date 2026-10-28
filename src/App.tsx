@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import styles from './App.module.css';
 import type { CharacterPreset, RenderMode, Treatment } from './treatment';
 import {
@@ -67,6 +67,13 @@ type WorkerPreviewDiagnostics = {
 };
 
 type PreviewDiagnosticState = {
+  sourceFrameRate?: number;
+  playbackScheduler?: {
+    frameIntervalMs: number;
+    ticks: number;
+    eligible: number;
+    published: number;
+  };
   requests: {
     sequence: number;
     generationId: number;
@@ -177,13 +184,40 @@ export default function App() {
   const treatment = treatments[mode];
   const treatmentRef = useRef(treatment);
   treatmentRef.current = treatment;
+  const publishPreview = useCallback(
+    (timestamp: number, previewTreatment: Treatment = treatmentRef.current) => {
+      if (!duration || !workerRef.current || exporting) return false;
+      const sequence = ++previewSequenceRef.current;
+      if (previewDiagnosticsEnabled) {
+        readPreviewDiagnosticState()?.requests.push({
+          sequence,
+          timestamp,
+          generationId: previewGenerationRef.current,
+          sentAt: performance.now(),
+        });
+      }
+      workerRef.current.postMessage({
+        type: 'preview',
+        timestamp,
+        sequence,
+        generationId: previewGenerationRef.current,
+        treatment: previewTreatment,
+      });
+      return true;
+    },
+    [duration, exporting, previewDiagnosticsEnabled],
+  );
   const setTreatment = (update: (current: Treatment) => Treatment) => {
+    const updatedTreatment = update(treatmentRef.current);
+    treatmentRef.current = updatedTreatment;
     previewGenerationRef.current++;
     dispatchGeneration({ type: 'invalidate' });
     setTreatments((current) => ({
       ...current,
-      [mode]: update(current[mode]),
+      [mode]: updatedTreatment,
     }));
+    if (playing)
+      publishPreview(playbackTimeRef.current, updatedTreatment);
   };
 
   useEffect(() => {
@@ -217,41 +251,55 @@ export default function App() {
     if (!playing || !duration || exporting) return;
     let previous = performance.now();
     let lastPublished = previous;
+    let lastUiUpdate = previous;
     let animationFrame = 0;
     const frameInterval = 1000 / Math.min(30, sourceFrameRateRef.current);
+    if (previewDiagnosticsEnabled) {
+      const diagnostics = readPreviewDiagnosticState();
+      if (diagnostics) {
+        diagnostics.playbackScheduler = {
+          frameIntervalMs: frameInterval,
+          ticks: 0,
+          eligible: 0,
+          published: 0,
+        };
+      }
+    }
     const advance = (now: number) => {
+      if (previewDiagnosticsEnabled) {
+        const scheduler = readPreviewDiagnosticState()?.playbackScheduler;
+        if (scheduler) scheduler.ticks++;
+      }
       playbackTimeRef.current =
         (playbackTimeRef.current + (now - previous) / 1000) % duration;
       previous = now;
-      if (now - lastPublished >= frameInterval) {
-        lastPublished = now;
+      if (now - lastPublished >= frameInterval - 1) {
+        lastPublished += frameInterval;
+        if (now - lastPublished >= frameInterval) lastPublished = now;
+        if (previewDiagnosticsEnabled) {
+          const scheduler = readPreviewDiagnosticState()?.playbackScheduler;
+          if (scheduler) scheduler.eligible++;
+        }
+        const published = publishPreview(playbackTimeRef.current);
+        if (published && previewDiagnosticsEnabled) {
+          const scheduler = readPreviewDiagnosticState()?.playbackScheduler;
+          if (scheduler) scheduler.published++;
+        }
+      }
+      if (now - lastUiUpdate >= 250) {
+        lastUiUpdate = now;
         setCurrentTime(playbackTimeRef.current);
       }
       animationFrame = window.requestAnimationFrame(advance);
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [duration, exporting, playing]);
+  }, [duration, exporting, playing, previewDiagnosticsEnabled, publishPreview]);
 
   useEffect(() => {
-    if (!duration || !workerRef.current || exporting) return;
-    const sequence = ++previewSequenceRef.current;
-    if (previewDiagnosticsEnabled) {
-      readPreviewDiagnosticState()?.requests.push({
-        sequence,
-        timestamp: currentTime,
-        generationId: previewGenerationRef.current,
-        sentAt: performance.now(),
-      });
-    }
-    workerRef.current.postMessage({
-      type: 'preview',
-      timestamp: currentTime,
-      sequence,
-      generationId: previewGenerationRef.current,
-      treatment,
-    });
-  }, [currentTime, duration, exporting, previewDiagnosticsEnabled, treatment]);
+    if (!duration || exporting || playing) return;
+    publishPreview(currentTime, treatment);
+  }, [currentTime, duration, exporting, playing, publishPreview, treatment]);
 
   const chooseFile = (file?: File) => {
     if (!file || exporting || generatingBundle) return;
@@ -308,6 +356,10 @@ export default function App() {
       previewGenerationRef.current++;
       displayedPreviewSequenceRef.current = -1;
       sourceFrameRateRef.current = reply.frameRate;
+      if (previewDiagnosticsEnabled) {
+        const diagnostics = readPreviewDiagnosticState();
+        if (diagnostics) diagnostics.sourceFrameRate = reply.frameRate;
+      }
       activeCodeBundleRef.current = undefined;
       codeBundleOperationIdRef.current++;
       setDownloadUrl((url) => {
@@ -700,7 +752,10 @@ export default function App() {
                 className={styles.playButton}
                 disabled={controlsDisabled}
                 aria-label={playing ? 'Pause preview' : 'Play preview'}
-                onClick={() => setPlaying(!playing)}
+                onClick={() => {
+                  if (playing) setCurrentTime(playbackTimeRef.current);
+                  setPlaying(!playing);
+                }}
               >
                 {playing ? 'Pause' : 'Play'}
               </button>
@@ -718,6 +773,8 @@ export default function App() {
                   previewGenerationRef.current++;
                   playbackTimeRef.current = time;
                   setCurrentTime(time);
+                  if (playing)
+                    publishPreview(time, treatmentRef.current);
                 }}
               />
               <span className={styles.playbackTime}>
@@ -757,9 +814,14 @@ export default function App() {
             value={mode}
             disabled={controlsDisabled}
             onChange={(event) => {
+              const nextMode = event.currentTarget.value as RenderMode;
+              const nextTreatment = treatments[nextMode];
               previewGenerationRef.current++;
               dispatchGeneration({ type: 'invalidate' });
-              setMode(event.currentTarget.value as RenderMode);
+              treatmentRef.current = nextTreatment;
+              setMode(nextMode);
+              if (playing)
+                publishPreview(playbackTimeRef.current, nextTreatment);
             }}
           >
             <option value="ASCII">ASCII</option>

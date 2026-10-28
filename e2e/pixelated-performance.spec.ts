@@ -209,6 +209,13 @@ async function measureWindow(
         __previewDrawTimes?: number[];
         __previewInstrumentationCostMs?: number;
         __asciiPreviewDiagnostics?: {
+          sourceFrameRate?: number;
+          playbackScheduler?: {
+            frameIntervalMs: number;
+            ticks: number;
+            eligible: number;
+            published: number;
+          };
           requests: {
             sequence: number;
             generationId: number;
@@ -377,6 +384,8 @@ async function measureWindow(
           'deviceMemory' in navigator ? navigator.deviceMemory : null,
         previewCanvasWidth: canvas.width,
         previewCanvasHeight: canvas.height,
+        reportedSourceFrameRate: diagnostics?.sourceFrameRate ?? null,
+        playbackScheduler: diagnostics?.playbackScheduler ?? null,
         elapsedSeconds: Number(elapsedSeconds.toFixed(2)),
         animationFrameHz: Number((gaps.length / elapsedSeconds).toFixed(1)),
         rAFGapMs: summarizeIntervals(gaps),
