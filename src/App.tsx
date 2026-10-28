@@ -80,7 +80,6 @@ export default function App() {
   const activeCodeBundleRef = useRef<number | undefined>(undefined);
   const exportOperationIdRef = useRef(0);
   const activeExportRef = useRef<number | undefined>(undefined);
-  const sourceRequestIdRef = useRef(0);
   const [source, setSource] = useState<SourceSession>({ tag: 'empty' });
   const [candidate, setCandidate] = useState<SourceCandidate>({ tag: 'idle' });
   const [capabilities, setCapabilities] = useState<OutputCapabilities>({
@@ -202,8 +201,7 @@ export default function App() {
       return;
     }
     if (pendingWorkerRef.current) releaseWorker(pendingWorkerRef.current);
-    const requestId = ++sourceRequestIdRef.current;
-    setCandidate({ tag: 'checking', name: file.name, requestId });
+    setCandidate({ tag: 'checking', name: file.name });
     setMessage('Checking replacement video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
@@ -214,7 +212,7 @@ export default function App() {
     const reject = (reason: string) => {
       if (pendingWorkerRef.current !== worker) return;
       pendingWorkerRef.current = null;
-      setCandidate({ tag: 'rejected', name: file.name, message: reason });
+      setCandidate({ tag: 'idle' });
       initialPreview?.close();
       releaseWorker(worker);
       setMessage(reason);

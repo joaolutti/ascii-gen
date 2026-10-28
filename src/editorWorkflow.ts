@@ -6,8 +6,7 @@ export type SourceSession =
 
 export type SourceCandidate =
   | { tag: 'idle' }
-  | { tag: 'checking'; name: string; requestId: number }
-  | { tag: 'rejected'; name: string; message: string };
+  | { tag: 'checking'; name: string };
 
 export type OutputCapabilities = {
   mp4: 'checking' | 'available' | 'unavailable';
