@@ -56,12 +56,21 @@ test('shows progress, locks editing, cancels cleanly, and can export again', asy
     page.getByRole('link', { name: 'Save MP4 again' }),
   ).toHaveCount(0);
 
+  const autoDownloadPromise = page.waitForEvent('download');
   await exportButton.click();
+  const autoDownload = await autoDownloadPromise;
+  expect(autoDownload.suggestedFilename()).toBe('ascii-video.mp4');
   await expect(
     page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
+  const saveAgainPromise = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
+  expect((await saveAgainPromise).suggestedFilename()).toBe('ascii-video.mp4');
   await setDensity(page, 104);
+  const repeatedDownloadPromise = page.waitForEvent('download');
   await exportButton.click();
+  const repeatedDownload = await repeatedDownloadPromise;
+  expect(repeatedDownload.suggestedFilename()).toBe('ascii-video.mp4');
   await expect(
     page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
@@ -107,14 +116,12 @@ test('exports a playable silent MP4 repeatedly after cancellation', async ({
   await exportButton.click();
   await page.getByRole('button', { name: 'Cancel export' }).click();
   await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
+  const downloadPromise = page.waitForEvent('download');
   await exportButton.click();
+  const download = await downloadPromise;
   await expect(
     page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
-
-  const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Save MP4 again' }).click();
-  const download = await downloadPromise;
   const output = join(test.info().outputDir, download.suggestedFilename());
   await download.saveAs(output);
   const metadata = JSON.parse(
