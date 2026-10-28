@@ -1,0 +1,53 @@
+import { expect, test } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+
+test('previews and exports the Pixelated square-cell treatment', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByLabel('Choose source video')
+    .setInputFiles('public/fixtures/landscape.mp4');
+  await expect(page.getByLabel('ASCII preview')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
+    timeout: 60_000,
+  });
+
+  const ascii = page.getByLabel('ASCII preview');
+  const originalHash = await ascii.evaluate((element) => {
+    const { data } = (element as HTMLCanvasElement)
+      .getContext('2d')!
+      .getImageData(0, 0, 320, 180);
+    return data.reduce((hash, value, index) => (index % 97 ? hash : (hash * 31 + value) >>> 0), 0);
+  });
+
+  await page.getByLabel('Render mode').selectOption('Pixelated');
+  await expect(page.getByLabel('Pixelated preview')).toBeVisible();
+  await expect(page.getByLabel('Grid step')).toHaveValue('8');
+  await expect(page.getByLabel('Cell spacing')).toHaveValue('25');
+  await expect(page.getByLabel('Density')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.getByLabel('Pixelated preview').evaluate((element) => {
+        const { data } = (element as HTMLCanvasElement)
+          .getContext('2d')!
+          .getImageData(0, 0, 320, 180);
+        return data.reduce((hash, value, index) => (index % 97 ? hash : (hash * 31 + value) >>> 0), 0);
+      }),
+    )
+    .not.toBe(originalHash);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
+  const download = await downloadPromise;
+  const output = await download.path();
+  expect(output).toBeTruthy();
+  const frame = execFileSync('ffmpeg', [
+    '-v', 'error', '-i', output!, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1',
+  ]);
+  let amberPixels = 0;
+  for (let index = 0; index < frame.length; index += 3)
+    if (frame[index]! > 190 && frame[index + 1]! > 115 && frame[index + 1]! < 220 && frame[index + 2]! < 125)
+      amberPixels++;
+  expect(amberPixels).toBeGreaterThan(20);
+});

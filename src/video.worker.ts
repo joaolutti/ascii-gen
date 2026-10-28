@@ -47,7 +47,10 @@ const ramps: Record<CharacterPreset, string> = {
   Binary: ' 01',
 };
 const defaultTreatment: Treatment = {
+  mode: 'ASCII',
   density: 88,
+  gridStep: 8,
+  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -166,6 +169,68 @@ function drawAscii(
         : treatment.foreground;
       context.fillText(char, x * cellW, y * cellH);
     }
+}
+
+function drawFrame(
+  sample: Parameters<typeof drawAscii>[0],
+  target: OffscreenCanvas,
+  treatment: Treatment,
+) {
+  if (treatment.mode === 'ASCII') {
+    drawAscii(sample, target, treatment);
+    return;
+  }
+  const context = target.getContext('2d');
+  const source = new OffscreenCanvas(target.width, target.height);
+  const sourceContext = source.getContext('2d', { willReadFrequently: true });
+  if (!context || !sourceContext) throw new Error('Canvas 2D is unavailable.');
+  sample.draw(sourceContext, 0, 0, target.width, target.height);
+  const pixels = sourceContext.getImageData(0, 0, target.width, target.height).data;
+  context.fillStyle = treatment.background;
+  context.fillRect(0, 0, target.width, target.height);
+  const step = Math.max(1, treatment.gridStep);
+  const spacing = Math.max(0, Math.min(0.75, treatment.spacing / 100));
+  const columns = Math.max(1, Math.round(target.width / step));
+  const rows = Math.max(1, Math.round(target.height / step));
+  for (let row = 0; row < rows; row++) {
+    const y = target.height / 2 + (row - (rows - 1) / 2) * step;
+    for (let column = 0; column < columns; column++) {
+      const x = target.width / 2 + (column - (columns - 1) / 2) * step;
+      const left = Math.max(0, Math.floor(x - step / 2));
+      const top = Math.max(0, Math.floor(y - step / 2));
+      const right = Math.min(target.width, Math.ceil(x + step / 2));
+      const bottom = Math.min(target.height, Math.ceil(y + step / 2));
+      let luminance = 0;
+      let count = 0;
+      for (let py = top; py < bottom; py++) {
+        for (let px = left; px < right; px++) {
+          const offset = (py * target.width + px) * 4;
+          luminance +=
+            pixels[offset]! * 0.2126 +
+            pixels[offset + 1]! * 0.7152 +
+            pixels[offset + 2]! * 0.0722;
+          count++;
+        }
+      }
+      if (!count) continue;
+      let brightness = luminance / count / 255;
+      brightness = Math.max(
+        0,
+        Math.min(
+          1,
+          (brightness - 0.5) * (treatment.contrast / 100) +
+            0.5 +
+            treatment.brightness / 100,
+        ),
+      );
+      if (treatment.inverted) brightness = 1 - brightness;
+      const side = step * (1 - spacing) * brightness;
+      if (side > 0) {
+        context.fillStyle = treatment.foreground;
+        context.fillRect(x - side / 2, y - side / 2, side, side);
+      }
+    }
+  }
 }
 
 function extractCharacterRows(
@@ -306,7 +371,7 @@ async function load(sourceFile: File) {
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
-  drawAscii(sample, canvas, defaultTreatment);
+  drawFrame(sample, canvas, defaultTreatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
@@ -335,7 +400,7 @@ async function renderPreview(
     sample.close();
     return;
   }
-  drawAscii(sample, canvas, treatment);
+  drawFrame(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   if (sequence !== latestPreviewSequence) {
@@ -414,7 +479,7 @@ async function exportMp4(treatment: Treatment, operationId: number) {
           `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
         );
       try {
-        drawAscii(sample, exportCanvas, treatment);
+        drawFrame(sample, exportCanvas, treatment);
       } finally {
         sample.close();
       }

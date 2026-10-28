@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './App.module.css';
-import type { CharacterPreset, Treatment } from './treatment';
+import type { CharacterPreset, RenderMode, Treatment } from './treatment';
 
 function formatTime(seconds: number) {
   const wholeSeconds = Math.floor(seconds);
@@ -38,7 +38,10 @@ type WorkerReply =
   | { type: 'error'; message: string; operationId?: number };
 
 const defaultTreatment: Treatment = {
+  mode: 'ASCII',
   density: 88,
+  gridStep: 8,
+  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -358,7 +361,10 @@ export default function App() {
         <div className={styles.previewColumn}>
           <div className={styles.preview}>
             {name ? (
-              <canvas ref={canvasRef} aria-label="ASCII preview" />
+              <canvas
+                ref={canvasRef}
+                aria-label={treatment.mode === 'ASCII' ? 'ASCII preview' : 'Pixelated preview'}
+              />
             ) : (
               <div className={styles.empty}>
                 <span className={styles.mark}>A·S·C·I·I</span>
@@ -418,6 +424,32 @@ export default function App() {
             {message}
           </p>
           <div className={styles.divider} />
+          <p className={styles.eyebrow}>RENDER MODE</p>
+          <label className={styles.controlLabel} htmlFor="render-mode">
+            Render mode
+          </label>
+          <select
+            id="render-mode"
+            aria-label="Render mode"
+            className={styles.select}
+            value={treatment.mode}
+            disabled={controlsDisabled}
+            onChange={(event) => {
+              const mode = event.currentTarget.value as RenderMode;
+              setTreatment((current) => ({
+                ...current,
+                mode,
+                ...(mode === 'Pixelated'
+                  ? { gridStep: 8, spacing: 25, foreground: '#ffb547', background: '#000000' }
+                  : { ...defaultTreatment, mode }),
+              }));
+            }}
+          >
+            <option value="ASCII">ASCII</option>
+            <option value="Pixelated">Pixelated</option>
+          </select>
+          {treatment.mode === 'ASCII' ? (
+            <>
           <p className={styles.eyebrow}>CHARACTER PRESET</p>
           <label className={styles.controlLabel} htmlFor="character-preset">
             Character preset
@@ -575,6 +607,22 @@ export default function App() {
             Source-color mode colors each character from its source region.
             Brightness still selects the character.
           </p>
+            </>
+          ) : (
+            <>
+              <label className={styles.rangeLabel} htmlFor="grid-step">
+                Grid step <span>{treatment.gridStep} px</span>
+              </label>
+              <input id="grid-step" aria-label="Grid step" className={styles.range} type="range" min={4} max={40} step={4} value={treatment.gridStep} disabled={controlsDisabled} onChange={(event) => setTreatment((current) => ({ ...current, gridStep: Number(event.currentTarget.value) }))} />
+              <p className={styles.note}>4–40 output pixels · default 8</p>
+              <label className={styles.rangeLabel} htmlFor="spacing">
+                Cell spacing <span>{treatment.spacing}%</span>
+              </label>
+              <input id="spacing" aria-label="Cell spacing" className={styles.range} type="range" min={0} max={75} step={5} value={treatment.spacing} disabled={controlsDisabled} onChange={(event) => setTreatment((current) => ({ ...current, spacing: Number(event.currentTarget.value) }))} />
+              <p className={styles.note}>0–75% cell spacing · default 25%</p>
+              <p className={styles.note}>Brightness determines the size of each square cell.</p>
+            </>
+          )}
           <button
             type="button"
             className={styles.reset}
@@ -593,7 +641,7 @@ export default function App() {
           <button
             type="button"
             className={styles.export}
-            disabled={!canGenerateBundle || controlsDisabled}
+            disabled={!canGenerateBundle || controlsDisabled || treatment.mode !== 'ASCII'}
             onClick={generateCodeBundle}
           >
             Generate ASCII code bundle
