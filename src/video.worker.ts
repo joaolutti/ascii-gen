@@ -6,6 +6,7 @@ import {
   Mp4OutputFormat,
   Output,
   Quality,
+  VideoSample,
   VideoSampleSink,
   ALL_FORMATS,
 } from 'mediabunny';
@@ -58,6 +59,7 @@ let file: File | undefined;
 let width = 0;
 let height = 0;
 let duration = 0;
+let firstTimestamp = 0;
 let sourceFrameRate = 30;
 let latestPreviewSequence = 0;
 let input: Input | undefined;
@@ -67,6 +69,9 @@ let canvas: OffscreenCanvas | undefined;
 let pendingPreview:
   { timestamp: number; sequence: number; generationId: number; treatment: Treatment } | undefined;
 let processingPreview = false;
+let previewSamples: ReturnType<VideoSampleSink['samples']> | undefined;
+let previewCurrentSample: VideoSample | undefined;
+let previewNextSample: VideoSample | undefined;
 let activeExportId: number | undefined;
 let canceledExportId: number | undefined;
 let activeOutput: Output | undefined;
@@ -180,6 +185,61 @@ function drawFrame(
   }
 }
 
+function closePreviewSamples() {
+  previewCurrentSample?.close();
+  previewNextSample?.close();
+  previewCurrentSample = undefined;
+  previewNextSample = undefined;
+  const iterator = previewSamples;
+  previewSamples = undefined;
+  if (iterator) void iterator.return(undefined);
+}
+
+function startPreviewSamples(timestamp: number) {
+  closePreviewSamples();
+  if (!sink) return;
+  previewSamples = sink.samples(timestamp);
+}
+
+async function getPreviewSample(timestamp: number) {
+  if (!sink) return null;
+  const absoluteTimestamp =
+    firstTimestamp + Math.min(Math.max(0, timestamp), duration - 0.001);
+  if (
+    previewCurrentSample &&
+    absoluteTimestamp + 1e-6 < previewCurrentSample.timestamp
+  ) {
+    startPreviewSamples(absoluteTimestamp);
+  } else if (!previewSamples) {
+    startPreviewSamples(absoluteTimestamp);
+  }
+
+  if (
+    previewNextSample &&
+    previewNextSample.timestamp <= absoluteTimestamp + 1e-6
+  ) {
+    previewCurrentSample?.close();
+    previewCurrentSample = previewNextSample;
+    previewNextSample = undefined;
+  }
+
+  while (previewSamples && !previewNextSample) {
+    const next = await previewSamples.next();
+    if (next.done) {
+      previewSamples = undefined;
+      break;
+    }
+    if (next.value.timestamp <= absoluteTimestamp + 1e-6) {
+      previewCurrentSample?.close();
+      previewCurrentSample = next.value;
+    } else {
+      previewNextSample = next.value;
+    }
+  }
+
+  return (previewCurrentSample ?? previewNextSample)?.clone() ?? null;
+}
+
 function outputDimensions(sourceWidth: number, sourceHeight: number) {
   const portrait = sourceHeight > sourceWidth;
   const maxWidth = portrait ? 720 : 1280;
@@ -197,6 +257,7 @@ async function load(sourceFile: File) {
     throw new Error(
       'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
     );
+  closePreviewSamples();
   input?.dispose();
   input = undefined;
   sink = undefined;
@@ -256,7 +317,8 @@ async function load(sourceFile: File) {
   sink = new VideoSampleSink(track);
   const dimensions = outputDimensions(width, height);
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
-  const sample = await sink.getSample(await track.getFirstTimestamp());
+  firstTimestamp = await track.getFirstTimestamp();
+  const sample = await sink.getSample(firstTimestamp);
   if (!sample) throw new Error('Could not decode the first video frame.');
   drawFrame(sample, canvas, defaultTreatment);
   sample.close();
@@ -281,9 +343,7 @@ async function renderPreview(
   treatment: Treatment,
 ) {
   if (!sink || !canvas || !track) return;
-  const firstTimestamp = await track.getFirstTimestamp();
-  const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
-  const sample = await sink.getSample(firstTimestamp + boundedTimestamp);
+  const sample = await getPreviewSample(timestamp);
   if (!sample) return;
   drawFrame(sample, canvas, treatment);
   sample.close();
@@ -602,6 +662,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     if (activeCodeBundleId !== undefined)
       canceledCodeBundleId = activeCodeBundleId;
     void activeOutput?.cancel();
+    closePreviewSamples();
     input?.dispose();
     input = undefined;
     sink = undefined;
