@@ -42,6 +42,6 @@ Canvas draw calls measure frames painted by the app, not monitor presentation or
 
 ## Remaining validation
 
-The supplied visual reference could not be retrieved, and no local copy is present. Pixelated reference comparison remains open. Chrome and Edge performance runs remain open. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
+An October 23 screen recording of the inspiration post linked in the [product spec](product-spec.md) is available locally and shows its animated gold Pixelated fish treatment. A side-by-side comparison against the ticket's exact acceptance criteria remains open because the GitHub issue is currently inaccessible. Chrome and Edge performance runs also remain open. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
 
 The media stays local as required by ADR-0001. Playback tuning does not change the selected treatment or reduce export fidelity.
