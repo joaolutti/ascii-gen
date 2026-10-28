@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 async function loadSource(page: import('@playwright/test').Page, path: string) {
   await page.getByLabel('Choose source video').setInputFiles(path);
-  await expect(page.getByLabel('ASCII preview')).toBeVisible();
+  await expect(page.getByLabel(/preview/i).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
     timeout: 60_000,
   });
@@ -72,16 +72,19 @@ async function downloadFirstFrame(
 }
 
 async function previewPixels(page: import('@playwright/test').Page) {
-  return page.getByLabel('ASCII preview').evaluate((element) => {
-    const canvas = element as HTMLCanvasElement;
-    const rgba = canvas
-      .getContext('2d')!
-      .getImageData(0, 0, canvas.width, canvas.height).data;
-    const pixels: number[] = [];
-    for (let index = 0; index < rgba.length; index += 4)
-      pixels.push(rgba[index], rgba[index + 1], rgba[index + 2]);
-    return pixels;
-  });
+  return page
+    .getByLabel(/preview/i)
+    .first()
+    .evaluate((element) => {
+      const canvas = element as HTMLCanvasElement;
+      const rgba = canvas
+        .getContext('2d')!
+        .getImageData(0, 0, canvas.width, canvas.height).data;
+      const pixels: number[] = [];
+      for (let index = 0; index < rgba.length; index += 4)
+        pixels.push(rgba[index], rgba[index + 1], rgba[index + 2]);
+      return pixels;
+    });
 }
 
 function meanDifference(left: number[], right: number[]) {
@@ -111,6 +114,13 @@ test('replaces source video through admission and keeps the selected treatment',
   await page.goto('/');
   await loadSource(page, 'public/fixtures/landscape.mp4');
   await changeStyle(page);
+  await page.getByLabel('Render mode').selectOption('Pixelated');
+  await setRange(page, 'Grid step', 16);
+  await setRange(page, 'Cell spacing', 45);
+  await setRange(page, 'Brightness', 30);
+  await setRange(page, 'Contrast', 150);
+  await page.getByLabel('Invert brightness mapping').check();
+  await page.getByLabel('Foreground color').fill('#00ff00');
   const originalPreview = await previewPixels(page);
   await page
     .getByLabel('Choose source video')
@@ -121,7 +131,18 @@ test('replaces source video through admission and keeps the selected treatment',
   await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
     timeout: 60_000,
   });
+  await expect(page.getByLabel('Render mode')).toHaveValue('Pixelated');
+  await expect(page.getByLabel('Grid step')).toHaveValue('16');
+  await expect(page.getByLabel('Cell spacing')).toHaveValue('45');
+  await expect(page.getByRole('slider', { name: 'Brightness' })).toHaveValue(
+    '30',
+  );
+  await expect(page.getByLabel('Contrast')).toHaveValue('150');
+  await expect(page.getByLabel('Invert brightness mapping')).toBeChecked();
+  await expect(page.getByLabel('Foreground color')).toHaveValue('#00ff00');
+  await page.getByLabel('Render mode').selectOption('ASCII');
   await expectStyle(page);
+  await page.getByLabel('Render mode').selectOption('Pixelated');
   const replacementPreview = await previewPixels(page);
   expect(meanDifference(originalPreview, replacementPreview)).toBeGreaterThan(
     1,
@@ -142,12 +163,33 @@ test('recovers from a rejected replacement and can replace it with valid media',
 }) => {
   await page.goto('/');
   await loadSource(page, 'public/fixtures/landscape.mp4');
+  await setRange(page, 'Density', 104);
+  await page.getByLabel('Render mode').selectOption('Pixelated');
+  await setRange(page, 'Grid step', 16);
+  await page.getByLabel('Render mode').selectOption('ASCII');
+  await setRange(page, 'Preview position', 1.2);
+  await page.getByLabel('Play preview').click();
   await page.getByLabel('Choose source video').setInputFiles({
     name: 'unreadable.mp4',
     mimeType: 'video/mp4',
     buffer: Buffer.from('not a video'),
   });
   await expect(page.getByRole('status')).toContainText('could not be read');
+  await expect(
+    page.getByRole('heading', { name: 'landscape.mp4' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Render mode')).toHaveValue('ASCII');
+  await expect(page.getByLabel('Density')).toHaveValue('104');
+  await expect(page.getByLabel('Pause preview')).toBeVisible();
+  await expect
+    .poll(async () =>
+      Number(await page.getByLabel('Preview position').inputValue()),
+    )
+    .toBeGreaterThan(0);
+  await page.getByLabel('Pause preview').click();
+  await page.getByLabel('Render mode').selectOption('Pixelated');
+  await expect(page.getByLabel('Grid step')).toHaveValue('16');
+  await page.getByLabel('Render mode').selectOption('ASCII');
   await page
     .getByLabel('Choose source video')
     .setInputFiles('public/fixtures/color-regions.mp4');
