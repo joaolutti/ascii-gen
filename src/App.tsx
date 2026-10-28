@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './App.module.css';
-import type { CharacterPreset, RenderMode, Treatment } from './treatment';
+import type { CharacterPreset, Treatment } from './treatment';
 
 function formatTime(seconds: number) {
   const wholeSeconds = Math.floor(seconds);
@@ -18,7 +18,6 @@ type WorkerReply =
   | { type: 'ready'; width: number; height: number; duration: number }
   | {
       type: 'progress';
-      operationId: number;
       value: number;
       completedFrames: number;
       totalFrames: number;
@@ -37,11 +36,8 @@ type WorkerReply =
   | { type: 'disposed' }
   | { type: 'error'; message: string; operationId?: number };
 
-const defaultAsciiTreatment: Treatment = {
-  mode: 'ASCII',
+const defaultTreatment: Treatment = {
   density: 88,
-  gridStep: 8,
-  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -51,21 +47,10 @@ const defaultAsciiTreatment: Treatment = {
   sourceColor: false,
 };
 
-const defaultPixelatedTreatment: Treatment = {
-  ...defaultAsciiTreatment,
-  mode: 'Pixelated',
-  foreground: '#ffb547',
-  background: '#000000',
-};
-
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
-  const pendingWorkerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
-  const displayedPreviewSequenceRef = useRef(-1);
-  const exportOperationRef = useRef(0);
-  const activeExportRef = useRef<number | null>(null);
   const playbackTimeRef = useRef(0);
   const codeBundleOperationIdRef = useRef(0);
   const activeCodeBundleRef = useRef<number | undefined>(undefined);
@@ -81,24 +66,11 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [mode, setMode] = useState<RenderMode>('ASCII');
-  const [treatments, setTreatments] = useState<Record<RenderMode, Treatment>>({
-    ASCII: defaultAsciiTreatment,
-    Pixelated: defaultPixelatedTreatment,
-  });
-  const treatment = treatments[mode];
-  const treatmentRef = useRef(treatment);
-  treatmentRef.current = treatment;
-  const setTreatment = (update: (current: Treatment) => Treatment) =>
-    setTreatments((current) => ({
-      ...current,
-      [mode]: update(current[mode]),
-    }));
+  const [treatment, setTreatment] = useState(defaultTreatment);
 
   useEffect(() => {
     return () => {
       releaseWorker(workerRef.current);
-      releaseWorker(pendingWorkerRef.current);
     };
   }, []);
 
@@ -125,21 +97,14 @@ export default function App() {
   useEffect(() => {
     if (!playing || !duration || exporting) return;
     let previous = performance.now();
-    let lastPublished = previous;
-    let animationFrame = 0;
-    const frameInterval = 1000 / 30;
-    const advance = (now: number) => {
+    const timer = window.setInterval(() => {
+      const now = performance.now();
       playbackTimeRef.current =
         (playbackTimeRef.current + (now - previous) / 1000) % duration;
       previous = now;
-      if (now - lastPublished >= frameInterval) {
-        lastPublished = now;
-        setCurrentTime(playbackTimeRef.current);
-      }
-      animationFrame = window.requestAnimationFrame(advance);
-    };
-    animationFrame = window.requestAnimationFrame(advance);
-    return () => window.cancelAnimationFrame(animationFrame);
+      setCurrentTime(playbackTimeRef.current);
+    }, 100);
+    return () => window.clearInterval(timer);
   }, [duration, exporting, playing]);
 
   useEffect(() => {
@@ -152,69 +117,6 @@ export default function App() {
       treatment,
     });
   }, [currentTime, duration, exporting, treatment]);
-
-  const handleWorkerMessage = (
-    worker: Worker,
-    event: MessageEvent<WorkerReply>,
-  ) => {
-    const reply = event.data;
-    if (workerRef.current !== worker) {
-      if (reply.type === 'preview') reply.bitmap.close();
-      if (reply.type === 'disposed') worker.terminate();
-      return;
-    }
-    if (reply.type === 'preview') {
-      if (
-        reply.sequence !== previewSequenceRef.current ||
-        reply.sequence <= displayedPreviewSequenceRef.current
-      ) {
-        reply.bitmap.close();
-        return;
-      }
-      displayedPreviewSequenceRef.current = reply.sequence;
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.width = reply.bitmap.width;
-        canvas.height = reply.bitmap.height;
-        canvas.getContext('2d')?.drawImage(reply.bitmap, 0, 0);
-        reply.bitmap.close();
-      }
-    } else if (reply.type === 'progress') {
-      if (reply.operationId !== activeExportRef.current) return;
-      setProgress(reply.value);
-    } else if (reply.type === 'done') {
-      if (reply.operationId !== activeExportRef.current) return;
-      activeExportRef.current = null;
-      const url = URL.createObjectURL(
-        new Blob([reply.bytes], { type: 'video/mp4' }),
-      );
-      setDownloadUrl(url);
-      setExporting(false);
-      setMessage('Your silent MP4 is ready to download.');
-    } else if (reply.type === 'canceled') {
-      if (reply.operationId !== activeExportRef.current) return;
-      activeExportRef.current = null;
-      setExporting(false);
-      setProgress(0);
-      setMessage('Export canceled. Your source video and settings are ready.');
-    } else if (reply.type === 'error') {
-      if (reply.operationId !== undefined) {
-        if (reply.operationId !== activeExportRef.current) return;
-      } else {
-        if (
-          reply.sequence !== undefined &&
-          reply.sequence !== previewSequenceRef.current
-        )
-          return;
-        setMessage(`Preview failed: ${reply.message}`);
-        return;
-      }
-      activeExportRef.current = null;
-      setExporting(false);
-      setProgress(0);
-      setMessage(`Export failed: ${reply.message} You can try again.`);
-    }
-  };
 
   const chooseFile = (file?: File) => {
     if (!file || exporting) return;
@@ -249,30 +151,16 @@ export default function App() {
       );
       return;
     }
-    const oldPendingWorker = pendingWorkerRef.current;
-    if (oldPendingWorker) releaseWorker(oldPendingWorker);
-    setMessage('Checking replacement video locally…');
+    setMessage('Reading source video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
     });
-    pendingWorkerRef.current = worker;
-    let initialPreview: ImageBitmap | undefined;
-    let ready = false;
-    const reject = (reason: string) => {
-      if (pendingWorkerRef.current !== worker) return;
-      pendingWorkerRef.current = null;
-      initialPreview?.close();
-      releaseWorker(worker);
-      setMessage(reason);
-    };
-    worker.onerror = () =>
-      reject(
-        'This file could not be read as a supported video. Choose an H.264 MP4.',
-      );
+    workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const reply = event.data;
-      if (pendingWorkerRef.current !== worker) {
+      if (workerRef.current !== worker) {
         if (reply.type === 'preview') reply.bitmap.close();
+        if (reply.type === 'disposed') worker.terminate();
         return;
       }
       if (reply.type === 'preview') {
@@ -381,7 +269,6 @@ export default function App() {
     worker.postMessage({
       type: 'load',
       file,
-      treatment,
       testExportFailure:
         import.meta.env.DEV && testOptions.has('testExportFailure'),
       testExportDelay: import.meta.env.DEV
@@ -399,7 +286,6 @@ export default function App() {
   };
 
   const exportVideo = () => {
-    if (activeExportRef.current !== null) return;
     setDownloadUrl((url) => {
       if (url) URL.revokeObjectURL(url);
       return '';
@@ -408,9 +294,7 @@ export default function App() {
     setExporting(true);
     setProgress(0);
     setMessage('Encoding on this device…');
-    const operationId = ++exportOperationRef.current;
-    activeExportRef.current = operationId;
-    workerRef.current?.postMessage({ type: 'export', treatment, operationId });
+    workerRef.current?.postMessage({ type: 'export', treatment });
   };
 
   const generateCodeBundle = () => {
@@ -428,9 +312,7 @@ export default function App() {
   };
 
   const cancelExport = () => {
-    const operationId = activeExportRef.current;
-    if (operationId !== null)
-      workerRef.current?.postMessage({ type: 'cancel-export', operationId });
+    workerRef.current?.postMessage({ type: 'cancel-export' });
   };
 
   const cancelCodeBundle = () => {
@@ -460,10 +342,7 @@ export default function App() {
         <div className={styles.previewColumn}>
           <div className={styles.preview}>
             {name ? (
-              <canvas
-                ref={canvasRef}
-                aria-label={`${treatment.mode} preview`}
-              />
+              <canvas ref={canvasRef} aria-label="ASCII preview" />
             ) : (
               <div className={styles.empty}>
                 <span className={styles.mark}>A·S·C·I·I</span>
@@ -523,22 +402,27 @@ export default function App() {
             {message}
           </p>
           <div className={styles.divider} />
-          <p className={styles.eyebrow}>RENDER MODE</p>
-          <label className={styles.controlLabel} htmlFor="render-mode">
-            Render mode
+          <p className={styles.eyebrow}>CHARACTER PRESET</p>
+          <label className={styles.controlLabel} htmlFor="character-preset">
+            Character preset
           </label>
           <select
-            id="render-mode"
-            aria-label="Render mode"
+            id="character-preset"
+            aria-label="Character preset"
             className={styles.select}
             value={treatment.preset}
             disabled={controlsDisabled}
             onChange={(event) => {
-              setMode(event.currentTarget.value as RenderMode);
+              const preset = event.currentTarget.value as CharacterPreset;
+              setTreatment((current) => ({
+                ...current,
+                preset,
+              }));
             }}
           >
-            <option value="ASCII">ASCII</option>
-            <option value="Pixelated">Pixelated</option>
+            <option value="Classic">Classic</option>
+            <option value="Minimal">Minimal</option>
+            <option value="Binary">Binary</option>
           </select>
           <p className={styles.note}>
             Classic: varied ASCII ramp (space to $) · Minimal: space, dot, hash
@@ -733,9 +617,6 @@ export default function App() {
               className={styles.download}
               href={downloadUrl}
               download="ascii-video.mp4"
-              onClick={() =>
-                setMessage('Download requested for your silent MP4.')
-              }
             >
               Download silent MP4
             </a>

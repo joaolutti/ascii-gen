@@ -22,8 +22,6 @@ Users provide a source video, adjust its ASCII appearance in a live preview, and
 
 Represent each frame as a regular grid of characters selected according to the brightness of the corresponding source region.
 
-Pixelated mode is an alternative rendering mode. It represents the source with a regular grid of square cells whose size follows adjusted brightness. Grid step is measured in output pixels between cell centers (4–40 px, default 8 px). Cell spacing is a percentage of that step left empty around each cell (0–80%, default 25%); maximum cell side is `Grid step × (1 − Cell spacing / 100)`, then adjusted brightness scales each cell from zero to that maximum. Pixelated brightness comes from the average luminance of the source area covered by each cell and follows the brightness, contrast, and inversion controls. The default Pixelated foreground is amber (`#ffb547`) on black (`#000000`). Both modes process video locally in the browser, following [ADR-0001](adr/0001-local-video-processing.md).
-
 Provide these controls:
 
 - **Density:** number of character columns; more columns produce finer detail.

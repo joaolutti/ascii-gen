@@ -21,7 +21,6 @@ type Request =
   | {
       type: 'load';
       file: File;
-      treatment: Treatment;
       testExportFailure?: boolean;
       testExportDelay?: number;
       testCodeBundleFailure?: boolean;
@@ -48,10 +47,7 @@ const ramps: Record<CharacterPreset, string> = {
   Binary: ' 01',
 };
 const defaultTreatment: Treatment = {
-  mode: 'ASCII',
   density: 88,
-  gridStep: 8,
-  spacing: 25,
   brightness: 0,
   contrast: 100,
   inverted: false,
@@ -73,9 +69,8 @@ let latestPreviewSequence = 0;
 let pendingPreview:
   { timestamp: number; sequence: number; treatment: Treatment } | undefined;
 let processingPreview = false;
-let canceledExportId: number | undefined;
+let exportCanceled = false;
 let activeOutput: Output | undefined;
-let activeExportId: number | undefined;
 let didTestExportFail = false;
 
 let testExportDelay = 0;
@@ -243,7 +238,7 @@ function outputDimensions(sourceWidth: number, sourceHeight: number) {
   };
 }
 
-async function load(sourceFile: File, treatment: Treatment) {
+async function load(sourceFile: File) {
   if (sourceFile.size > 100_000_000)
     throw new Error(
       'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
@@ -310,7 +305,7 @@ async function load(sourceFile: File, treatment: Treatment) {
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   const sample = await sink.getSample(await track.getFirstTimestamp());
   if (!sample) throw new Error('Could not decode the first video frame.');
-  drawFrame(sample, canvas, treatment);
+  drawAscii(sample, canvas, defaultTreatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
@@ -335,9 +330,17 @@ async function renderPreview(
   const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
   const sample = await sink.getSample(firstTimestamp + boundedTimestamp);
   if (!sample) return;
-  drawFrame(sample, canvas, treatment);
+  if (sequence !== latestPreviewSequence) {
+    sample.close();
+    return;
+  }
+  drawAscii(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
+  if (sequence !== latestPreviewSequence) {
+    bitmap.close();
+    return;
+  }
   scope.postMessage(
     { type: 'preview', bitmap, name: file?.name ?? '', sequence },
     [bitmap],
@@ -361,7 +364,6 @@ async function processPreviewQueue() {
         if (request.sequence !== latestPreviewSequence) continue;
         scope.postMessage({
           type: 'error',
-          sequence: request.sequence,
           message:
             error instanceof Error
               ? error.message
@@ -375,14 +377,13 @@ async function processPreviewQueue() {
   }
 }
 
-async function exportMp4(treatment: Treatment, operationId: number) {
+async function exportMp4(treatment: Treatment) {
   if (!file || !input || !track || !sink || !canvas)
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
   activeOutput = output;
-  activeExportId = operationId;
-  canceledExportId = undefined;
+  exportCanceled = false;
   const exportCanvas = new OffscreenCanvas(canvas.width, canvas.height);
   const source = new CanvasSource(exportCanvas, {
     codec: 'avc',
@@ -397,11 +398,11 @@ async function exportMp4(treatment: Treatment, operationId: number) {
   const frameCount = Math.ceil(duration * frameRate);
   try {
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-      if (canceledExportId === operationId) return;
+      if (exportCanceled) return;
       const timestamp = frameIndex * step;
       if (timestamp >= duration) break;
       const sample = await sink.getSample(firstTimestamp + timestamp);
-      if (canceledExportId === operationId) {
+      if (exportCanceled) {
         sample?.close();
         return;
       }
@@ -410,7 +411,7 @@ async function exportMp4(treatment: Treatment, operationId: number) {
           `Could not decode the required export frame at ${timestamp.toFixed(3)} seconds.`,
         );
       try {
-        drawFrame(sample, exportCanvas, treatment);
+        drawAscii(sample, exportCanvas, treatment);
       } finally {
         sample.close();
       }
@@ -418,7 +419,6 @@ async function exportMp4(treatment: Treatment, operationId: number) {
       count++;
       scope.postMessage({
         type: 'progress',
-        operationId,
         value: Math.min(0.99, count / frameCount),
         completedFrames: count,
         totalFrames: frameCount,
@@ -433,16 +433,14 @@ async function exportMp4(treatment: Treatment, operationId: number) {
         );
       else await yieldToWorkerMessages();
     }
-    if (canceledExportId === operationId) return;
+    if (exportCanceled) return;
     source.close();
     await output.finalize();
-    if (canceledExportId === operationId) return;
+    if (exportCanceled) return;
     if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
-    scope.postMessage({ type: 'done', operationId, bytes: target.buffer }, [
-      target.buffer,
-    ]);
+    scope.postMessage({ type: 'done', bytes: target.buffer }, [target.buffer]);
   } catch (error) {
-    if (canceledExportId === operationId) return;
+    if (exportCanceled) return;
     if (output.state !== 'finalized' && output.state !== 'canceled') {
       await output.cancel();
     }
@@ -450,10 +448,9 @@ async function exportMp4(treatment: Treatment, operationId: number) {
   } finally {
     source.close();
     if (activeOutput === output) activeOutput = undefined;
-    if (activeExportId === operationId) activeExportId = undefined;
-    if (canceledExportId === operationId) {
-      canceledExportId = undefined;
-      scope.postMessage({ type: 'canceled', operationId });
+    if (exportCanceled) {
+      exportCanceled = false;
+      scope.postMessage({ type: 'canceled' });
     }
   }
 }
@@ -671,8 +668,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       : 0;
   }
   if (request.type === 'cancel-export') {
-    if (activeExportId !== request.operationId) return;
-    canceledExportId = request.operationId;
+    exportCanceled = true;
     void activeOutput?.cancel();
     return;
   }
@@ -688,10 +684,9 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     void processPreviewQueue();
     return;
   }
-  if (request.type === 'export' && activeExportId !== undefined) return;
   const task =
     request.type === 'load'
-      ? load(request.file, request.treatment)
+      ? load(request.file)
       : request.type === 'export'
         ? exportMp4(request.treatment)
         : request.type === 'code-bundle'
