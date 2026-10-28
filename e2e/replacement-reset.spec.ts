@@ -5,7 +5,7 @@ import { join } from 'node:path';
 async function loadSource(page: import('@playwright/test').Page, path: string) {
   await page.getByLabel('Choose source video').setInputFiles(path);
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
 }
@@ -50,7 +50,7 @@ async function downloadFirstFrame(
   name: string,
 ) {
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   const path = join(test.info().outputDir, name);
   await download.saveAs(path);
@@ -118,7 +118,7 @@ test('replaces source video through admission and keeps the selected treatment',
   await expect(
     page.getByRole('heading', { name: 'color-regions.mp4' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
   await expectStyle(page);
@@ -127,11 +127,11 @@ test('replaces source video through admission and keeps the selected treatment',
     1,
   );
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({ timeout: 60_000 });
   const replacementFrame = await downloadFirstFrame(page, 'replacement.mp4');
   expect(meanDifference(replacementPreview, replacementFrame)).toBeLessThan(32);
@@ -154,7 +154,7 @@ test('recovers from a rejected replacement and can replace it with valid media',
   await expect(
     page.getByRole('heading', { name: 'color-regions.mp4' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
 });
@@ -191,29 +191,29 @@ test('a changed treatment invalidates an old download and produces distinct expo
   test.setTimeout(180_000);
   await page.goto('/');
   await loadSource(page, 'public/fixtures/landscape.mp4');
-  const exportButton = page.getByRole('button', { name: 'Export MP4' });
+  const exportButton = page.getByRole('button', { name: 'Generate & download MP4' });
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({
     timeout: 60_000,
   });
   await page.getByLabel('Character preset').selectOption('Minimal');
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toHaveCount(0);
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({ timeout: 60_000 });
   const minimalFrame = await downloadFirstFrame(page, 'minimal.mp4');
   const secondPage = await page.context().newPage();
   await secondPage.goto('/');
   await loadSource(secondPage, 'public/fixtures/landscape.mp4');
   await secondPage.getByLabel('Character preset').selectOption('Binary');
-  await secondPage.getByRole('button', { name: 'Export MP4' }).click();
+  await secondPage.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    secondPage.getByRole('link', { name: 'Download silent MP4' }),
+    secondPage.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({
     timeout: 60_000,
   });
@@ -227,16 +227,16 @@ test('canceling an export preserves the full treatment and source for retry', as
   await page.goto('/?testExportDelay=20');
   await loadSource(page, 'public/fixtures/landscape.mp4');
   await changeStyle(page);
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await page.getByRole('button', { name: 'Cancel export' }).click();
   await expect(page.getByRole('status')).toContainText('Export canceled');
   await expectStyle(page);
   await expect(
     page.getByRole('heading', { name: 'landscape.mp4' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({
     timeout: 60_000,
   });
@@ -248,15 +248,15 @@ test('a failed export preserves the full treatment and source for retry', async 
   await page.goto('/?testExportFailure=1');
   await loadSource(page, 'public/fixtures/landscape.mp4');
   await changeStyle(page);
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(page.getByRole('status')).toContainText('Export failed');
   await expectStyle(page);
   await expect(
     page.getByRole('heading', { name: 'landscape.mp4' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({
     timeout: 60_000,
   });
@@ -272,9 +272,9 @@ test('keeps source video processing in the browser without sending media request
   });
   await page.goto('/');
   await loadSource(page, 'public/fixtures/landscape.mp4');
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({
     timeout: 60_000,
   });
@@ -290,7 +290,7 @@ test('refresh starts a fresh session with default treatment and no source video'
   await page.reload();
   await expect(page.getByText('Preview will appear here')).toBeVisible();
   await expect(page.getByText('Choose a video')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeDisabled();
   await expect(page.getByLabel('Character preset')).toHaveValue('Classic');
   await expect(page.getByLabel('Density')).toHaveValue('88');
   await expect(page.getByRole('slider', { name: 'Brightness' })).toHaveValue(

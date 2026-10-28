@@ -202,7 +202,7 @@ test('code generation remains available when MP4 encoding is unavailable', async
     name: 'Generate ASCII code bundle',
   });
   await expect(generate).toBeEnabled({ timeout: 60_000 });
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeDisabled();
   const requestedDownload = page.waitForEvent('download');
   await generate.click();
   expect((await requestedDownload).suggestedFilename()).toBe(

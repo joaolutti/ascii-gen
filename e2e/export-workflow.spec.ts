@@ -24,10 +24,10 @@ test('shows progress, locks editing, cancels cleanly, and can export again', asy
     .getByLabel('Choose source video')
     .setInputFiles('public/fixtures/landscape.mp4');
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
-  const exportButton = page.getByRole('button', { name: 'Export MP4' });
+  const exportButton = page.getByRole('button', { name: 'Generate & download MP4' });
   await exportButton.click();
   await expect(
     page.getByRole('progressbar', { name: 'Export progress' }),
@@ -53,17 +53,17 @@ test('shows progress, locks editing, cancels cleanly, and can export again', asy
   await expect(exportButton).toBeEnabled();
   await expect(page.getByLabel('Density')).toBeEnabled();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toHaveCount(0);
 
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
   await setDensity(page, 104);
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
 });
 
@@ -77,7 +77,7 @@ test('recovers from a controlled export failure with the source and treatment in
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
   const density = page.getByLabel('Density');
   await setDensity(page, 104);
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(page.getByRole('status')).toContainText('Export failed');
   await expect(page.getByRole('status')).toContainText('try again');
   await expect(
@@ -85,11 +85,11 @@ test('recovers from a controlled export failure with the source and treatment in
   ).toBeVisible();
   await expect(density).toHaveValue('104');
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
 });
 
@@ -100,20 +100,20 @@ test('exports a playable silent MP4 repeatedly after cancellation', async ({
   await page
     .getByLabel('Choose source video')
     .setInputFiles('public/fixtures/landscape.mp4');
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
-  const exportButton = page.getByRole('button', { name: 'Export MP4' });
+  const exportButton = page.getByRole('button', { name: 'Generate & download MP4' });
   await exportButton.click();
   await page.getByRole('button', { name: 'Cancel export' }).click();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
 
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   const output = join(test.info().outputDir, download.suggestedFilename());
   await download.saveAs(output);

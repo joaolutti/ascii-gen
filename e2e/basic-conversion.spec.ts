@@ -31,14 +31,14 @@ test('selects a local clip, previews ASCII, and exports a silent MP4', async ({
     )
     .toBeGreaterThan(2);
 
-  const exportButton = page.getByRole('button', { name: 'Export MP4' });
+  const exportButton = page.getByRole('button', { name: 'Generate & download MP4' });
   await expect(exportButton).toBeEnabled();
   await exportButton.click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.mp4$/);
   const output = join(test.info().outputDir, download.suggestedFilename());

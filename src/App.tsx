@@ -18,11 +18,12 @@ type WorkerReply =
   | { type: 'ready'; width: number; height: number; duration: number }
   | {
       type: 'progress';
+      operationId: number;
       value: number;
       completedFrames: number;
       totalFrames: number;
     }
-  | { type: 'done'; bytes: ArrayBuffer }
+  | { type: 'done'; operationId: number; bytes: ArrayBuffer }
   | {
       type: 'code-bundle-progress';
       operationId: number;
@@ -32,7 +33,7 @@ type WorkerReply =
     }
   | { type: 'code-bundle-done'; operationId: number; bytes: ArrayBuffer }
   | { type: 'code-bundle-canceled'; operationId: number }
-  | { type: 'canceled' }
+  | { type: 'canceled'; operationId: number }
   | { type: 'disposed' }
   | { type: 'error'; message: string; operationId?: number };
 
@@ -54,6 +55,8 @@ export default function App() {
   const playbackTimeRef = useRef(0);
   const codeBundleOperationIdRef = useRef(0);
   const activeCodeBundleRef = useRef<number | undefined>(undefined);
+  const exportOperationIdRef = useRef(0);
+  const activeExportRef = useRef<number | undefined>(undefined);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
   const [canExport, setCanExport] = useState(false);
@@ -209,14 +212,18 @@ export default function App() {
           setMessage('This browser cannot encode H.264 MP4 on this device.');
         });
       } else if (reply.type === 'progress') {
+        if (reply.operationId !== activeExportRef.current) return;
         setProgress(reply.value);
       } else if (reply.type === 'done') {
+        if (reply.operationId !== activeExportRef.current) return;
+        activeExportRef.current = undefined;
         const url = URL.createObjectURL(
           new Blob([reply.bytes], { type: 'video/mp4' }),
         );
         setDownloadUrl(url);
         setExporting(false);
-        setMessage('Your silent ASCII video is ready.');
+        setMessage('Your silent MP4 download was requested.');
+        requestDownload(url, 'ascii-video.mp4');
       } else if (reply.type === 'code-bundle-progress') {
         if (activeCodeBundleRef.current !== reply.operationId) return;
         setProgress(reply.value);
@@ -240,6 +247,8 @@ export default function App() {
           'Generation canceled. Your source video and settings are ready to try again.',
         );
       } else if (reply.type === 'canceled') {
+        if (reply.operationId !== activeExportRef.current) return;
+        activeExportRef.current = undefined;
         setExporting(false);
         setProgress(0);
         setMessage(
@@ -248,13 +257,15 @@ export default function App() {
       } else if (reply.type === 'error') {
         if (
           reply.operationId !== undefined &&
-          activeCodeBundleRef.current !== reply.operationId
-        )
-          return;
+          reply.operationId !== activeExportRef.current &&
+          reply.operationId !== activeCodeBundleRef.current
+        ) return;
         const failedBundle =
           reply.operationId !== undefined &&
           activeCodeBundleRef.current === reply.operationId;
         if (failedBundle) activeCodeBundleRef.current = undefined;
+        else if (reply.operationId === activeExportRef.current)
+          activeExportRef.current = undefined;
         setGeneratingBundle(false);
         setExporting(false);
         setProgress(0);
@@ -286,15 +297,18 @@ export default function App() {
   };
 
   const exportVideo = () => {
+    if (!canExport || exporting || generatingBundle || !workerRef.current) return;
     setDownloadUrl((url) => {
       if (url) URL.revokeObjectURL(url);
       return '';
     });
     setPlaying(false);
+    const operationId = ++exportOperationIdRef.current;
+    activeExportRef.current = operationId;
     setExporting(true);
     setProgress(0);
     setMessage('Encoding on this device…');
-    workerRef.current?.postMessage({ type: 'export', treatment });
+    workerRef.current.postMessage({ type: 'export', treatment: { ...treatment }, operationId });
   };
 
   const generateCodeBundle = () => {
@@ -312,7 +326,9 @@ export default function App() {
   };
 
   const cancelExport = () => {
-    workerRef.current?.postMessage({ type: 'cancel-export' });
+    const operationId = activeExportRef.current;
+    if (operationId === undefined) return;
+    workerRef.current?.postMessage({ type: 'cancel-export', operationId });
   };
 
   const cancelCodeBundle = () => {
@@ -572,7 +588,7 @@ export default function App() {
             disabled={!canExport || controlsDisabled}
             onClick={exportVideo}
           >
-            Export MP4
+            Generate & download MP4
           </button>
           <button
             type="button"
@@ -618,7 +634,7 @@ export default function App() {
               href={downloadUrl}
               download="ascii-video.mp4"
             >
-              Download silent MP4
+              Save MP4 again
             </a>
           )}
           {bundleUrl && (

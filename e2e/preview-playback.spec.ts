@@ -75,13 +75,13 @@ test('plays, pauses, and seeks the ASCII preview without changing export timing'
   await seekTo(page, 1.5);
   await expect.poll(() => frameHash(page), { timeout: 5_000 }).not.toBe(paused);
 
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({ timeout: 30_000 });
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   const output = await download.path();
   expect(output).toBeTruthy();

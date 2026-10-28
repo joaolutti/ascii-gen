@@ -83,10 +83,10 @@ test('accepts an under-15-second H.264 MP4 and recovers after a rejected selecti
   const picker = page.getByLabel('Choose source video');
   await picker.setInputFiles(join(fixtures, 'at-duration.mp4'));
   await expect(page.getByRole('status')).toContainText('15 seconds or longer');
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeDisabled();
   await picker.setInputFiles(join(fixtures, 'under-limit.mp4'));
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
 });
 
 test('rejects metadata beyond each source-video limit', async ({ page }) => {
@@ -101,7 +101,7 @@ test('rejects metadata beyond each source-video limit', async ({ page }) => {
     await picker.setInputFiles(join(fixtures, fixture));
     await expect(page.getByRole('status')).toContainText(explanation);
     await expect(
-      page.getByRole('button', { name: 'Export MP4' }),
+      page.getByRole('button', { name: 'Generate & download MP4' }),
     ).toBeDisabled();
   }
 });
@@ -167,7 +167,7 @@ test('accepts a dropped H.264 MP4 through the same preview and export path', asy
       );
   }, bytes);
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
 });
 
 test('explains when a selected file is not readable media', async ({
@@ -178,7 +178,7 @@ test('explains when a selected file is not readable media', async ({
     .getByLabel('Choose source video')
     .setInputFiles(join(fixtures, 'unreadable.mp4'));
   await expect(page.getByRole('status')).toContainText('could not be read');
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeDisabled();
 });
 
 test('keeps export disabled when the device cannot encode H.264 MP4', async ({
@@ -194,5 +194,5 @@ test('keeps export disabled when the device cannot encode H.264 MP4', async ({
   await expect(page.getByRole('status')).toContainText(
     'cannot encode H.264 MP4',
   );
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeDisabled();
 });

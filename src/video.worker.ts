@@ -33,9 +33,9 @@ type Request =
       sequence: number;
       treatment: Treatment;
     }
-  | { type: 'export'; treatment: Treatment }
+  | { type: 'export'; treatment: Treatment; operationId: number }
   | { type: 'code-bundle'; treatment: Treatment; operationId: number }
-  | { type: 'cancel-export' }
+  | { type: 'cancel-export'; operationId: number }
   | { type: 'cancel-code-bundle'; operationId: number }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
@@ -69,7 +69,8 @@ let latestPreviewSequence = 0;
 let pendingPreview:
   { timestamp: number; sequence: number; treatment: Treatment } | undefined;
 let processingPreview = false;
-let exportCanceled = false;
+let activeExportId: number | undefined;
+let canceledExportId: number | undefined;
 let activeOutput: Output | undefined;
 let didTestExportFail = false;
 
@@ -377,13 +378,15 @@ async function processPreviewQueue() {
   }
 }
 
-async function exportMp4(treatment: Treatment) {
+async function exportMp4(treatment: Treatment, operationId: number) {
   if (!file || !input || !track || !sink || !canvas)
     throw new Error('Choose a source video first.');
   const target = new BufferTarget();
   const output = new Output({ format: new Mp4OutputFormat(), target });
   activeOutput = output;
-  exportCanceled = false;
+  activeExportId = operationId;
+  canceledExportId = undefined;
+  const isCanceled = () => canceledExportId === operationId;
   const exportCanvas = new OffscreenCanvas(canvas.width, canvas.height);
   const source = new CanvasSource(exportCanvas, {
     codec: 'avc',
@@ -398,11 +401,11 @@ async function exportMp4(treatment: Treatment) {
   const frameCount = Math.ceil(duration * frameRate);
   try {
     for (let frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-      if (exportCanceled) return;
+      if (isCanceled()) return;
       const timestamp = frameIndex * step;
       if (timestamp >= duration) break;
       const sample = await sink.getSample(firstTimestamp + timestamp);
-      if (exportCanceled) {
+      if (isCanceled()) {
         sample?.close();
         return;
       }
@@ -419,6 +422,7 @@ async function exportMp4(treatment: Treatment) {
       count++;
       scope.postMessage({
         type: 'progress',
+        operationId,
         value: Math.min(0.99, count / frameCount),
         completedFrames: count,
         totalFrames: frameCount,
@@ -433,14 +437,14 @@ async function exportMp4(treatment: Treatment) {
         );
       else await yieldToWorkerMessages();
     }
-    if (exportCanceled) return;
+    if (isCanceled()) return;
     source.close();
     await output.finalize();
-    if (exportCanceled) return;
+    if (isCanceled()) return;
     if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
-    scope.postMessage({ type: 'done', bytes: target.buffer }, [target.buffer]);
+    scope.postMessage({ type: 'done', operationId, bytes: target.buffer }, [target.buffer]);
   } catch (error) {
-    if (exportCanceled) return;
+    if (isCanceled()) return;
     if (output.state !== 'finalized' && output.state !== 'canceled') {
       await output.cancel();
     }
@@ -448,9 +452,10 @@ async function exportMp4(treatment: Treatment) {
   } finally {
     source.close();
     if (activeOutput === output) activeOutput = undefined;
-    if (exportCanceled) {
-      exportCanceled = false;
-      scope.postMessage({ type: 'canceled' });
+    if (activeExportId === operationId) activeExportId = undefined;
+    if (isCanceled()) {
+      canceledExportId = undefined;
+      scope.postMessage({ type: 'canceled', operationId });
     }
   }
 }
@@ -640,7 +645,7 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
 scope.onmessage = (event: MessageEvent<Request>) => {
   const request = event.data;
   if (request.type === 'dispose') {
-    exportCanceled = true;
+    if (activeExportId !== undefined) canceledExportId = activeExportId;
     if (activeCodeBundleId !== undefined)
       canceledCodeBundleId = activeCodeBundleId;
     void activeOutput?.cancel();
@@ -668,7 +673,8 @@ scope.onmessage = (event: MessageEvent<Request>) => {
       : 0;
   }
   if (request.type === 'cancel-export') {
-    exportCanceled = true;
+    if (activeExportId !== request.operationId) return;
+    canceledExportId = request.operationId;
     void activeOutput?.cancel();
     return;
   }
@@ -688,11 +694,13 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     request.type === 'load'
       ? load(request.file)
       : request.type === 'export'
-        ? exportMp4(request.treatment)
+        ? exportMp4(request.treatment, request.operationId)
         : request.type === 'code-bundle'
           ? exportCodeBundle(request.treatment, request.operationId)
           : Promise.resolve();
   task.catch((error: unknown) => {
+    if (request.type === 'export' && activeExportId === request.operationId)
+      activeExportId = undefined;
     if (request.type === 'code-bundle') {
       if (activeCodeBundleId === request.operationId)
         activeCodeBundleId = undefined;
@@ -710,7 +718,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     }
     scope.postMessage({
       type: 'error',
-      ...(request.type === 'code-bundle'
+      ...(request.type === 'code-bundle' || request.type === 'export'
         ? { operationId: request.operationId }
         : {}),
       message:

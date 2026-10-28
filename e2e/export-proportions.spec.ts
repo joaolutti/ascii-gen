@@ -45,13 +45,13 @@ async function exportAndProbe(
   await page.goto('/');
   await page.getByLabel('Choose source video').setInputFiles(fixture);
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({ timeout: 30_000 });
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   const output = join(test.info().outputDir, download.suggestedFilename());
   await download.saveAs(output);

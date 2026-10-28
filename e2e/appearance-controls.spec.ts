@@ -103,12 +103,12 @@ async function countNearColor(page: Page, color: [number, number, number]) {
 }
 
 async function exportFirstFrame(page: Page, outputPath: string) {
-  await page.getByRole('button', { name: 'Export MP4' }).click();
+  await page.getByRole('button', { name: 'Generate & download MP4' }).click();
   await expect(
-    page.getByRole('link', { name: 'Download silent MP4' }),
+    page.getByRole('link', { name: 'Save MP4 again' }),
   ).toBeVisible({ timeout: 60_000 });
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Download silent MP4' }).click();
+  await page.getByRole('link', { name: 'Save MP4 again' }).click();
   const download = await downloadPromise;
   await download.saveAs(outputPath);
   return framePixels(outputPath);
@@ -123,7 +123,7 @@ async function loadEditor(page: Page) {
     page.getByRole('heading', { name: 'landscape.mp4' }),
   ).toBeVisible();
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
   await expect
@@ -251,7 +251,7 @@ test('chosen colors and source-color mode stay in sync between preview and downl
     page.getByRole('heading', { name: 'color-regions.mp4' }),
   ).toBeVisible();
   await expect(page.getByLabel('ASCII preview')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export MP4' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Generate & download MP4' })).toBeEnabled({
     timeout: 60_000,
   });
 

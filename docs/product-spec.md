@@ -47,7 +47,7 @@ Use a minimal, understated aesthetic with neutral surfaces and simple controls. 
 - After loading, show a large preview with a control panel beside it and playback controls below.
 - Loop the preview, with pause and scrubbing available.
 - Update the appearance live as parameters change.
-- Provide clear **Replace video**, **Reset controls**, and **Export** actions.
+- Provide clear **Replace video**, **Reset controls**, and **Generate & download MP4** actions.
 - Retain the selected style when replacing the source video.
 - Match the exported composition, colors, and character density in the preview.
 
@@ -59,10 +59,10 @@ Use a minimal, understated aesthetic with neutral surfaces and simple controls. 
 - Avoid upscaling smaller source videos.
 - Cap output at 30 fps while preserving lower source frame rates.
 - Render every required export frame independently of preview playback, so preview slowdowns do not cause missing export frames.
-- Start generation through a separate Export action.
+- Start generation through the primary **Generate & download MP4** action, which requests one browser download when the current operation succeeds.
 - Show progress and a Cancel action. Temporarily lock editing during export.
 - Preserve settings after cancellation or failure.
-- Show a download button on success and allow another export after further adjustments.
+- Report that the download was requested, not that saving finished. Keep a **Save MP4 again** recovery action for the completed artifact, and allow another export after further adjustments.
 - Offer versioned ASCII code output as a separate local generation path. Its standalone player, data contract, limits, measurement record, and integration guidance are documented in [code-output.md](code-output.md).
 
 ## Session and deferred scope
