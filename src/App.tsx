@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import styles from './App.module.css';
 import type { CharacterPreset, RenderMode, Treatment } from './treatment';
+import {
+  generationWorkflowReducer,
+  initialGenerationWorkflow,
+} from './editorWorkflow';
 
 function formatTime(seconds: number) {
   const wholeSeconds = Math.floor(seconds);
@@ -76,10 +80,25 @@ export default function App() {
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
   const [canExport, setCanExport] = useState(false);
   const [canGenerateBundle, setCanGenerateBundle] = useState(false);
-  const [generatingBundle, setGeneratingBundle] = useState(false);
+  const [generation, dispatchGeneration] = useReducer(
+    generationWorkflowReducer,
+    initialGenerationWorkflow,
+  );
   const [checkingReplacement, setCheckingReplacement] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const exporting =
+    (generation.tag === 'running' || generation.tag === 'canceling') &&
+    generation.output === 'mp4';
+  const generatingBundle =
+    (generation.tag === 'running' || generation.tag === 'canceling') &&
+    generation.output === 'ascii-code';
+  const progress =
+    generation.tag === 'running' || generation.tag === 'canceling'
+      ? generation.progress
+      : generation.tag === 'completed'
+        ? 1
+        : 0;
+  const generationRef = useRef(generation);
+  generationRef.current = generation;
   const [downloadUrl, setDownloadUrl] = useState('');
   const [bundleUrl, setBundleUrl] = useState('');
   const [duration, setDuration] = useState(0);
@@ -95,6 +114,7 @@ export default function App() {
   treatmentRef.current = treatment;
   const setTreatment = (update: (current: Treatment) => Treatment) => {
     previewGenerationRef.current++;
+    dispatchGeneration({ type: 'invalidate' });
     setTreatments((current) => ({
       ...current,
       [mode]: update(current[mode]),
@@ -223,12 +243,11 @@ export default function App() {
       setName(file.name);
       setCanExport(false);
       setCanGenerateBundle(typeof CompressionStream === 'function');
-      setGeneratingBundle(false);
+      dispatchGeneration({ type: 'invalidate' });
       setDuration(reply.duration);
       setCurrentTime(0);
       playbackTimeRef.current = 0;
       setPlaying(false);
-      setProgress(0);
       const canvas = canvasRef.current;
       if (canvas) {
         canvas.width = initialPreview.width;
@@ -312,44 +331,51 @@ export default function App() {
   const handleActiveReply = (reply: WorkerReply) => {
       if (reply.type === 'progress') {
         if (reply.operationId !== activeExportRef.current) return;
-        setProgress(reply.value);
+        dispatchGeneration({ type: 'progress', output: 'mp4', operationId: reply.operationId, value: reply.value });
       } else if (reply.type === 'done') {
         if (reply.operationId !== activeExportRef.current) return;
         activeExportRef.current = undefined;
+        if (generationRef.current.tag === 'canceling') {
+          dispatchGeneration({ type: 'cancelled', output: 'mp4', operationId: reply.operationId });
+          setMessage('Export canceled. Your source video and settings are ready.');
+          return;
+        }
         const url = URL.createObjectURL(
           new Blob([reply.bytes], { type: 'video/mp4' }),
         );
+        dispatchGeneration({ type: 'complete', output: 'mp4', operationId: reply.operationId, artifactUrl: url });
         setDownloadUrl(url);
-        setExporting(false);
         setMessage('Your silent MP4 download was requested.');
         requestDownload(url, 'ascii-video.mp4');
       } else if (reply.type === 'code-bundle-progress') {
         if (activeCodeBundleRef.current !== reply.operationId) return;
-        setProgress(reply.value);
+        dispatchGeneration({ type: 'progress', output: 'ascii-code', operationId: reply.operationId, value: reply.value });
       } else if (reply.type === 'code-bundle-done') {
         if (activeCodeBundleRef.current !== reply.operationId) return;
         activeCodeBundleRef.current = undefined;
-        setGeneratingBundle(false);
-        setProgress(1);
+        if (generationRef.current.tag === 'canceling') {
+          dispatchGeneration({ type: 'cancelled', output: 'ascii-code', operationId: reply.operationId });
+          setMessage('Generation canceled. Your source video and settings are ready to try again.');
+          return;
+        }
         const url = URL.createObjectURL(
           new Blob([reply.bytes], { type: 'application/zip' }),
         );
+        dispatchGeneration({ type: 'complete', output: 'ascii-code', operationId: reply.operationId, artifactUrl: url });
         setBundleUrl(url);
         setMessage('Your ASCII code bundle is ready. Download requested.');
         requestDownload(url, 'ascii-code-bundle.zip');
       } else if (reply.type === 'code-bundle-canceled') {
         if (activeCodeBundleRef.current !== reply.operationId) return;
         activeCodeBundleRef.current = undefined;
-        setGeneratingBundle(false);
-        setProgress(0);
+        dispatchGeneration({ type: 'cancelled', output: 'ascii-code', operationId: reply.operationId });
         setMessage(
           'Generation canceled. Your source video and settings are ready to try again.',
         );
       } else if (reply.type === 'canceled') {
         if (reply.operationId !== activeExportRef.current) return;
         activeExportRef.current = undefined;
-        setExporting(false);
-        setProgress(0);
+        dispatchGeneration({ type: 'cancelled', output: 'mp4', operationId: reply.operationId });
         setMessage(
           'Export canceled. Your source video and settings are ready.',
         );
@@ -363,12 +389,17 @@ export default function App() {
         const failedBundle =
           reply.operationId !== undefined &&
           activeCodeBundleRef.current === reply.operationId;
+        if (generationRef.current.tag === 'canceling') {
+          if (failedBundle) activeCodeBundleRef.current = undefined;
+          else activeExportRef.current = undefined;
+          dispatchGeneration({ type: 'cancelled', output: failedBundle ? 'ascii-code' : 'mp4', operationId: reply.operationId });
+          setMessage(failedBundle ? 'Generation canceled. Your source video and settings are ready to try again.' : 'Export canceled. Your source video and settings are ready.');
+          return;
+        }
         if (failedBundle) activeCodeBundleRef.current = undefined;
         else if (reply.operationId === activeExportRef.current)
           activeExportRef.current = undefined;
-        setGeneratingBundle(false);
-        setExporting(false);
-        setProgress(0);
+        dispatchGeneration({ type: 'failed', output: failedBundle ? 'ascii-code' : 'mp4', operationId: reply.operationId, message: reply.message });
         setMessage(failedBundle ? `Code generation failed: ${reply.message} You can try again.` : `Export failed: ${reply.message} You can try again.`);
       }
   };
@@ -382,8 +413,7 @@ export default function App() {
     setPlaying(false);
     const operationId = ++exportOperationIdRef.current;
     activeExportRef.current = operationId;
-    setExporting(true);
-    setProgress(0);
+    dispatchGeneration({ type: 'start', output: 'mp4', operationId });
     setMessage('Encoding on this device…');
     workerRef.current.postMessage({ type: 'export', treatment: { ...treatment }, operationId });
   };
@@ -392,8 +422,7 @@ export default function App() {
     setPlaying(false);
     const operationId = ++codeBundleOperationIdRef.current;
     activeCodeBundleRef.current = operationId;
-    setGeneratingBundle(true);
-    setProgress(0);
+    dispatchGeneration({ type: 'start', output: 'ascii-code', operationId });
     setMessage('Generating character data locally…');
     workerRef.current?.postMessage({
       type: 'code-bundle',
@@ -405,12 +434,14 @@ export default function App() {
   const cancelExport = () => {
     const operationId = activeExportRef.current;
     if (operationId === undefined) return;
+    dispatchGeneration({ type: 'cancel-requested', output: 'mp4', operationId });
     workerRef.current?.postMessage({ type: 'cancel-export', operationId });
   };
 
   const cancelCodeBundle = () => {
     const operationId = activeCodeBundleRef.current;
     if (operationId === undefined) return;
+    dispatchGeneration({ type: 'cancel-requested', output: 'ascii-code', operationId });
     workerRef.current?.postMessage({ type: 'cancel-code-bundle', operationId });
   };
 
@@ -514,6 +545,7 @@ export default function App() {
             disabled={controlsDisabled}
             onChange={(event) => {
               previewGenerationRef.current++;
+              dispatchGeneration({ type: 'invalidate' });
               setMode(event.currentTarget.value as RenderMode);
             }}
           >
