@@ -651,7 +651,7 @@ export default function App() {
                 className={styles.range}
                 type="range"
                 min={0}
-                max={75}
+                max={80}
                 step={5}
                 value={treatment.spacing}
                 disabled={controlsDisabled}
@@ -660,7 +660,7 @@ export default function App() {
                   setTreatment((current) => ({ ...current, spacing }));
                 }}
               />
-              <p className={styles.note}>0–75% cell spacing · default 25%</p>
+              <p className={styles.note}>0–80% cell spacing · default 25%</p>
               <label className={styles.rangeLabel} htmlFor="brightness">
                 Brightness <span>{treatment.brightness}</span>
               </label>

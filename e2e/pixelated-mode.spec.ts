@@ -63,11 +63,14 @@ test('keeps ASCII and Pixelated settings independent and resets only the active 
 
   await page.getByLabel('Render mode').selectOption('Pixelated');
   const gridStep = page.getByLabel('Grid step');
+  await expect(gridStep).toHaveAttribute('min', '4');
+  await expect(gridStep).toHaveAttribute('max', '40');
   await expect(gridStep).toBeVisible();
   await gridStep.focus();
   await gridStep.press('End');
   await expect(page.getByLabel('Grid step')).toHaveValue('40');
   await page.getByLabel('Foreground color').fill('#00ff00');
+  await expect(page.getByLabel('Cell spacing')).toHaveAttribute('max', '80');
   await page.getByLabel('Render mode').selectOption('ASCII');
   await expect(page.getByLabel('Density')).toHaveValue('160');
 

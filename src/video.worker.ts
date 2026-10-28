@@ -189,7 +189,7 @@ function drawFrame(
   context.fillStyle = treatment.background;
   context.fillRect(0, 0, target.width, target.height);
   const step = Math.max(1, treatment.gridStep);
-  const spacing = Math.max(0, Math.min(0.75, treatment.spacing / 100));
+  const spacing = Math.max(0, Math.min(0.8, treatment.spacing / 100));
   const columns = Math.max(1, Math.round(target.width / step));
   const rows = Math.max(1, Math.round(target.height / step));
   for (let row = 0; row < rows; row++) {
