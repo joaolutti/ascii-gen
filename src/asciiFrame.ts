@@ -36,12 +36,16 @@ export function createAsciiFrame(
   geometry: SourceGeometry,
   treatment: Treatment,
   output: SourceGeometry = geometry,
+  samplingCanvas?: OffscreenCanvas,
 ): AsciiFrame {
   const columns = treatment.density;
   const rows = Math.max(1, Math.round(((columns * geometry.height) / geometry.width) * 0.55));
-  const source = new OffscreenCanvas(columns, rows);
+  const source = samplingCanvas ?? new OffscreenCanvas(columns, rows);
+  if (source.width !== columns) source.width = columns;
+  if (source.height !== rows) source.height = rows;
   const context = source.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('Canvas 2D is unavailable.');
+  context.clearRect(0, 0, columns, rows);
   sample.draw(context, 0, 0, columns, rows);
   const pixels = context.getImageData(0, 0, columns, rows).data;
   const ramp = ramps[treatment.preset];
@@ -101,10 +105,15 @@ export function paintAsciiFrame(
   context.fillRect(0, 0, target.width, target.height);
   context.font = `${frame.cellHeight}px monospace`;
   context.textBaseline = 'top';
+  let currentFillStyle = '';
   for (let y = 0; y < frame.rows; y++) {
     for (let x = 0; x < frame.columns; x++) {
       const color = frame.colors?.[y]?.slice(x * 6, x * 6 + 6);
-      context.fillStyle = color ? `#${color}` : treatment.foreground;
+      const fillStyle = color ? `#${color}` : treatment.foreground;
+      if (fillStyle !== currentFillStyle) {
+        context.fillStyle = fillStyle;
+        currentFillStyle = fillStyle;
+      }
       context.fillText(
         frame.characters[y]![x]!,
         x * frame.cellWidth,

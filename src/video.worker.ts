@@ -67,6 +67,7 @@ let input: Input | undefined;
 let track: Awaited<ReturnType<Input['getPrimaryVideoTrack']>>;
 let sink: VideoSampleSink | undefined;
 let canvas: OffscreenCanvas | undefined;
+let previewSamplingCanvas: OffscreenCanvas | undefined;
 let pendingPreview:
   | {
       timestamp: number;
@@ -125,10 +126,16 @@ function drawAscii(
   treatment: Treatment = defaultTreatment,
 ) {
   if (!target) throw new Error('No video frame is loaded.');
+  const columns = treatment.density;
+  const rows = Math.max(
+    1,
+    Math.round(((columns * height) / width) * 0.55),
+  );
+  previewSamplingCanvas ??= new OffscreenCanvas(columns, rows);
   const frame = createAsciiFrame(sample, { width, height }, treatment, {
     width: target.width,
     height: target.height,
-  });
+  }, previewSamplingCanvas);
   paintAsciiFrame(frame, target, treatment);
 }
 

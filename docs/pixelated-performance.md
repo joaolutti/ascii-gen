@@ -50,6 +50,26 @@ The provisional hypotheses in #31 are evaluated against this matrix before tunin
 
 The priority for #13 is to address frame rendering and bitmap creation first: sample lookup/decode stayed small, while these stages account for most worker time at high density, portrait, and 1080p. The 1080p seek outlier also needs investigation. This measured Chromium baseline does not establish feasibility on the supported desktop browser set. Chrome and Edge are separate acceptance targets; neither browser is installed in this environment, so #31 remains incomplete until the matrix is repeated in both. A Chrome or Edge run can use the matching executable path in `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 
+### Post-change comparison for #13
+
+Commit `1f06126` is the measured baseline. The current change reuses a bounded sampling canvas and avoids redundant canvas fill-style writes. The same Chromium matrix and instrumentation ran on the same machine; values below are medians across three windows. The change leaves Density, mapping, colors, and output cadence intact.
+
+| Scenario | Draws/s, before → after | Worker p95, before → after | Seek p95, before → after |
+| --- | ---: | ---: | ---: |
+| Landscape, low density | 10.5 → 10.4 | 3.7 → 3.5 ms | 23 → 23 ms |
+| Landscape, default density | 10.5 → 10.5 | 11.4 → 13.6 ms | 27 → 36 ms |
+| Landscape, high density | 10.4 → 10.5 | 25.8 → 25.3 ms | 72 → 103 ms |
+| Landscape, source color | 10.4 → 10.4 | 14.1 → 9.9 ms | 55 → 38 ms |
+| Portrait, default density | 10.5 → 10.4 | 55.3 → 24.9 ms | 56 → 42 ms |
+| Landscape, fractional rate | 20.1 → 20.1 | 16.7 → 11.2 ms | 43 → 39 ms |
+| Landscape, 30 fps | 22.1 → 22.2 | 11.6 → 9.1 ms | 34 → 39 ms |
+| Landscape, 60 fps | 22.1 → 22.2 | 9.4 → 10.6 ms | 77 → 34 ms |
+| Near-limit source | 22.3 → 22.3 | 24.8 → 24.2 ms | 728 → 689 ms |
+
+Appearance p95 stayed between 24 and 110 ms after the change. Draw cadence is effectively unchanged, and several worker and seek measurements vary slightly between runs; the clearest improvement is portrait worker p95, down from 55.3 ms to 24.9 ms. The 90% cadence hypothesis and 150 ms near-limit seek budget still fail. Keep #13 open for the remaining cadence and near-limit seek diagnosis; this change does not justify weakening those targets.
+
+One of the 27 full-matrix windows recorded four Long Tasks during the first low-density run; the other two windows had none. An isolated repeat of that same scenario recorded none across all three windows. Keep the transient in the raw run and treat the isolated repeat as evidence that it did not recur, rather than removing the first observation.
+
 Canvas draw calls measure frames painted by the app, not monitor presentation or perceived smoothness. Long Tasks and JavaScript heap samples cover the page main thread only. They do not include the worker, decoded-frame memory, GPU allocations, or total browser-process memory. The fixtures exercise maximum duration, dimensions, and cadence together; they do not approach the 100 MB file-size limit. The matrix combines source-color mode with default density only; it does not test every density/color combination.
 
 ## Remaining validation
