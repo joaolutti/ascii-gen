@@ -14,8 +14,9 @@ type WorkerReply =
       bitmap: ImageBitmap;
       name: string;
       sequence: number;
+      generationId: number;
     }
-  | { type: 'ready'; width: number; height: number; duration: number }
+  | { type: 'ready'; width: number; height: number; duration: number; frameRate: number }
   | {
       type: 'progress';
       operationId: number;
@@ -35,7 +36,7 @@ type WorkerReply =
   | { type: 'code-bundle-canceled'; operationId: number }
   | { type: 'canceled'; operationId: number }
   | { type: 'disposed' }
-  | { type: 'error'; message: string; operationId?: number };
+  | { type: 'error'; message: string; operationId?: number; generationId?: number };
 
 const defaultTreatment: Treatment = {
   mode: 'ASCII',
@@ -63,6 +64,9 @@ export default function App() {
   const workerRef = useRef<Worker | null>(null);
   const pendingWorkerRef = useRef<Worker | null>(null);
   const previewSequenceRef = useRef(0);
+  const previewGenerationRef = useRef(0);
+  const displayedPreviewSequenceRef = useRef(-1);
+  const sourceFrameRateRef = useRef(30);
   const playbackTimeRef = useRef(0);
   const codeBundleOperationIdRef = useRef(0);
   const activeCodeBundleRef = useRef<number | undefined>(undefined);
@@ -89,11 +93,13 @@ export default function App() {
   const treatment = treatments[mode];
   const treatmentRef = useRef(treatment);
   treatmentRef.current = treatment;
-  const setTreatment = (update: (current: Treatment) => Treatment) =>
+  const setTreatment = (update: (current: Treatment) => Treatment) => {
+    previewGenerationRef.current++;
     setTreatments((current) => ({
       ...current,
       [mode]: update(current[mode]),
     }));
+  };
 
   useEffect(() => {
     return () => {
@@ -125,14 +131,21 @@ export default function App() {
   useEffect(() => {
     if (!playing || !duration || exporting) return;
     let previous = performance.now();
-    const timer = window.setInterval(() => {
-      const now = performance.now();
+    let lastPublished = previous;
+    let animationFrame = 0;
+    const frameInterval = 1000 / Math.min(30, sourceFrameRateRef.current);
+    const advance = (now: number) => {
       playbackTimeRef.current =
         (playbackTimeRef.current + (now - previous) / 1000) % duration;
       previous = now;
-      setCurrentTime(playbackTimeRef.current);
-    }, 100);
-    return () => window.clearInterval(timer);
+      if (now - lastPublished >= frameInterval) {
+        lastPublished = now;
+        setCurrentTime(playbackTimeRef.current);
+      }
+      animationFrame = window.requestAnimationFrame(advance);
+    };
+    animationFrame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [duration, exporting, playing]);
 
   useEffect(() => {
@@ -142,6 +155,7 @@ export default function App() {
       type: 'preview',
       timestamp: currentTime,
       sequence,
+      generationId: previewGenerationRef.current,
       treatment,
     });
   }, [currentTime, duration, exporting, treatment]);
@@ -196,6 +210,9 @@ export default function App() {
       setCheckingReplacement(false);
       if (previous) releaseWorker(previous);
       previewSequenceRef.current = 0;
+      previewGenerationRef.current++;
+      displayedPreviewSequenceRef.current = -1;
+      sourceFrameRateRef.current = reply.frameRate;
       activeCodeBundleRef.current = undefined;
       codeBundleOperationIdRef.current++;
       setDownloadUrl((url) => {
@@ -223,10 +240,14 @@ export default function App() {
       worker.onmessage = (activeEvent) => {
         const activeReply = activeEvent.data;
         if (activeReply.type === 'preview') {
-          if (activeReply.sequence !== previewSequenceRef.current) {
+          if (
+            activeReply.generationId !== previewGenerationRef.current ||
+            activeReply.sequence <= displayedPreviewSequenceRef.current
+          ) {
             activeReply.bitmap.close();
             return;
           }
+          displayedPreviewSequenceRef.current = activeReply.sequence;
           const activeCanvas = canvasRef.current;
           if (activeCanvas) {
             activeCanvas.width = activeReply.bitmap.width;
@@ -247,6 +268,7 @@ export default function App() {
         type: 'preview',
         timestamp: 0,
         sequence: previewSequenceRef.current,
+        generationId: previewGenerationRef.current,
         treatment: treatmentRef.current,
       });
       setMessage('Source video ready. Checking MP4 encoding support…');
@@ -332,11 +354,12 @@ export default function App() {
           'Export canceled. Your source video and settings are ready.',
         );
       } else if (reply.type === 'error') {
-        if (
-          reply.operationId !== undefined &&
-          reply.operationId !== activeExportRef.current &&
-          reply.operationId !== activeCodeBundleRef.current
-        ) return;
+        if (reply.operationId === undefined) {
+          if (reply.generationId !== previewGenerationRef.current) return;
+          setMessage(`Preview failed: ${reply.message}`);
+          return;
+        }
+        if (reply.operationId !== activeExportRef.current && reply.operationId !== activeCodeBundleRef.current) return;
         const failedBundle =
           reply.operationId !== undefined &&
           activeCodeBundleRef.current === reply.operationId;
@@ -346,11 +369,7 @@ export default function App() {
         setGeneratingBundle(false);
         setExporting(false);
         setProgress(0);
-        setMessage(
-          failedBundle
-            ? `Code generation failed: ${reply.message} You can try again.`
-            : `Export failed: ${reply.message} You can try again.`,
-        );
+        setMessage(failedBundle ? `Code generation failed: ${reply.message} You can try again.` : `Export failed: ${reply.message} You can try again.`);
       }
   };
 
@@ -452,6 +471,7 @@ export default function App() {
                 disabled={controlsDisabled}
                 onChange={(event) => {
                   const time = Number(event.currentTarget.value);
+                  previewGenerationRef.current++;
                   playbackTimeRef.current = time;
                   setCurrentTime(time);
                 }}
@@ -493,6 +513,7 @@ export default function App() {
             value={mode}
             disabled={controlsDisabled}
             onChange={(event) => {
+              previewGenerationRef.current++;
               setMode(event.currentTarget.value as RenderMode);
             }}
           >

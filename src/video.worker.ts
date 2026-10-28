@@ -31,6 +31,7 @@ type Request =
       type: 'preview';
       timestamp: number;
       sequence: number;
+      generationId: number;
       treatment: Treatment;
     }
   | { type: 'export'; treatment: Treatment; operationId: number }
@@ -64,13 +65,13 @@ let width = 0;
 let height = 0;
 let duration = 0;
 let sourceFrameRate = 30;
+let latestPreviewSequence = 0;
 let input: Input | undefined;
 let track: Awaited<ReturnType<Input['getPrimaryVideoTrack']>>;
 let sink: VideoSampleSink | undefined;
 let canvas: OffscreenCanvas | undefined;
-let latestPreviewSequence = 0;
 let pendingPreview:
-  { timestamp: number; sequence: number; treatment: Treatment } | undefined;
+  { timestamp: number; sequence: number; generationId: number; treatment: Treatment } | undefined;
 let processingPreview = false;
 let activeExportId: number | undefined;
 let canceledExportId: number | undefined;
@@ -313,7 +314,6 @@ async function load(sourceFile: File) {
   input = undefined;
   sink = undefined;
   file = sourceFile;
-  latestPreviewSequence = 0;
   input = new Input({
     formats: ALL_FORMATS,
     source: new BlobSource(sourceFile),
@@ -375,7 +375,7 @@ async function load(sourceFile: File) {
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
-    { type: 'preview', bitmap, name: sourceFile.name, sequence: 0 },
+    { type: 'preview', bitmap, name: sourceFile.name, sequence: 0, generationId: 0 },
     [bitmap],
   );
   scope.postMessage({
@@ -383,12 +383,14 @@ async function load(sourceFile: File) {
     width: canvas.width,
     height: canvas.height,
     duration,
+    frameRate: sourceFrameRate,
   });
 }
 
 async function renderPreview(
   timestamp: number,
   sequence: number,
+  generationId: number,
   treatment: Treatment,
 ) {
   if (!sink || !canvas || !track) return;
@@ -396,19 +398,11 @@ async function renderPreview(
   const boundedTimestamp = Math.min(Math.max(0, timestamp), duration - 0.001);
   const sample = await sink.getSample(firstTimestamp + boundedTimestamp);
   if (!sample) return;
-  if (sequence !== latestPreviewSequence) {
-    sample.close();
-    return;
-  }
   drawFrame(sample, canvas, treatment);
   sample.close();
   const bitmap = await createImageBitmap(canvas);
-  if (sequence !== latestPreviewSequence) {
-    bitmap.close();
-    return;
-  }
   scope.postMessage(
-    { type: 'preview', bitmap, name: file?.name ?? '', sequence },
+    { type: 'preview', bitmap, name: file?.name ?? '', sequence, generationId },
     [bitmap],
   );
 }
@@ -424,12 +418,14 @@ async function processPreviewQueue() {
         await renderPreview(
           request.timestamp,
           request.sequence,
+          request.generationId,
           request.treatment,
         );
       } catch (error) {
         if (request.sequence !== latestPreviewSequence) continue;
         scope.postMessage({
           type: 'error',
+          generationId: request.generationId,
           message:
             error instanceof Error
               ? error.message

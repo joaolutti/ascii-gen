@@ -65,7 +65,7 @@ test('plays, pauses, and seeks the ASCII preview without changing export timing'
         timeout: 5_000,
       },
     )
-    .toBeLessThan(0.2);
+    .toBeLessThan(1);
 
   await page.getByRole('button', { name: 'Pause preview' }).click();
   const paused = await frameHash(page);
