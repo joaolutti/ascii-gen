@@ -12,7 +12,7 @@ Run the opt-in matrix with:
 RUN_PREVIEW_PERF=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npx playwright test e2e/pixelated-performance.spec.ts --workers=1
 ```
 
-The test generates local H.264 fixtures and measures three 11-second windows for each case. Every scenario also gets 20 seek and 20 treatment-change latency samples. It reports canvas `ImageBitmap` draws and intervals, main-thread animation-frame gaps, request-to-reply and request-to-presentation latency, worker sample lookup/decode, frame rendering and bitmap creation time, queue counters, preview-position updates, main-thread Long Tasks, and JavaScript heap samples when the browser exposes them. A three-window control run disables app and worker diagnostics to estimate instrumentation overhead. Raw measurements are written to the ignored `test-results/pixelated-performance/results.json` file. Set `PREVIEW_PERF_SCENARIO` to one scenario name to rerun only that case.
+The test generates local H.264 fixtures and measures three 11-second windows for each case. Every scenario also gets 20 seek and 20 treatment-change latency samples. It reports canvas `ImageBitmap` draws and intervals, main-thread animation-frame gaps, request-to-reply and request-to-presentation latency, worker sample lookup/decode, frame rendering and bitmap creation time, queue counters, preview-position updates, main-thread Long Tasks, and JavaScript heap samples when the browser exposes them. A three-window control run disables app and worker diagnostics to estimate instrumentation overhead. Raw measurements are written to the ignored `test-results/pixelated-performance/results.json` file. Set `PREVIEW_PERF_SCENARIO` to one scenario name or a comma-separated list to rerun a subset. Pixelated-specific cases cover default and finest Grid step in portrait and landscape at 12 fps.
 
 The matrix ran on 2026-10-28 in headless system Chromium 155.0.8059.84 on Linux x86_64, with an Intel Core i5-10210U (4 cores / 8 threads) and 16 GB RAM. Results are medians of three windows; each window was approximately 11 seconds.
 
@@ -70,10 +70,25 @@ Appearance p95 stayed between 24 and 110 ms after the change. Draw cadence is ef
 
 One of the 27 full-matrix windows recorded four Long Tasks during the first low-density run; the other two windows had none. An isolated repeat of that same scenario recorded none across all three windows. Keep the transient in the raw run and treat the isolated repeat as evidence that it did not recur, rather than removing the first observation.
 
+### Pixelated measurements and reference review for #26
+
+The same Chromium build, machine, fixture cadence, diagnostics, and three 11-second windows were used for four Pixelated scenarios through the public editor. Each scenario also collected 20 seek and 20 Brightness-change samples. The local 12 fps, 2-second fixtures cover landscape and portrait at the default 8 px Grid step and finest 4 px Grid step.
+
+| Scenario | Preview draws / second | p95 draw interval | p95 worker time | p95 seek / appearance | Peak page heap median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Landscape, default 8 px | 10.4 | 102.7 ms | 4.5 ms | 25 / 40 ms | 12.2 MiB |
+| Landscape, finest 4 px | 10.5 | 103.1 ms | 7.6 ms | 35 / 49 ms | 22.1 MiB |
+| Portrait, default 8 px | 10.5 | 102.8 ms | 4.8 ms | 24 / 24 ms | 15.1 MiB |
+| Portrait, finest 4 px | 10.5 | 102.6 ms | 7.4 ms | 29 / 25 ms | 20.5 MiB |
+
+All four configurations have 16.7–16.8 ms main-thread rAF p95, no Long Tasks, no stale replies, and no queue replacements. Worker time remains well below the 12 fps frame interval, so no Pixelated-specific drawing optimization was indicated by this baseline. Actual displayed cadence is still about 87% of the 12 fps source, below the 90% hypothesis used for #13. Chrome and Edge remain unmeasured.
+
+The October 23 reference recording (`/home/jl/Videos/screenrecording-2026-10-23_17-39-02.mp4`) shows gold fish on black, regular square cells, recognizable silhouettes, internal tonal variation, and bright glow-like speckles. A local fish source was rendered through Pixelated mode (`/home/jl/Downloads/173684-849839047_tiny_trimmed.mp4`); its different composition prevents an exact motion/silhouette comparison, but the output preserves regular gold cells, visible fish silhouettes, and cell-level tonal detail. It has no glow or luminous speckles. That difference is recorded for an explicit treatment decision; the renderer has not been changed to add glow, dithering, or a tonal-mapping variant.
+
 Canvas draw calls measure frames painted by the app, not monitor presentation or perceived smoothness. Long Tasks and JavaScript heap samples cover the page main thread only. They do not include the worker, decoded-frame memory, GPU allocations, or total browser-process memory. The fixtures exercise maximum duration, dimensions, and cadence together; they do not approach the 100 MB file-size limit. The matrix combines source-color mode with default density only; it does not test every density/color combination.
 
 ## Remaining validation
 
-An October 23 screen recording of the inspiration post linked in the [product spec](product-spec.md) is available locally and shows its animated gold Pixelated fish treatment. A side-by-side comparison against the ticket's exact acceptance criteria remains open. Chrome and Edge performance runs also remain open because neither browser is installed in this environment. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
+The Pixelated visual difference in the local comparison is documented above; a decision on adding glow-like highlights remains open. Chrome and Edge performance runs also remain open because neither browser is installed in this environment. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
 
 The media stays local as required by ADR-0001. Playback tuning does not change the selected treatment or reduce export fidelity.

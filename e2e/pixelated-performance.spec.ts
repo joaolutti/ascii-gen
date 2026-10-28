@@ -13,6 +13,8 @@ type Scenario = {
   mediaDurationSeconds: number;
   density: 'low' | 'default' | 'high';
   sourceColor: boolean;
+  mode?: 'Pixelated';
+  gridStep?: 'default' | 'finest';
 };
 
 const fixtureDir = join(process.cwd(), 'test-results', 'pixelated-performance');
@@ -79,6 +81,16 @@ async function setDensity(page: Page, density: Scenario['density']) {
   await control.press(density === 'low' ? 'Home' : 'End');
 }
 
+async function setPixelatedGridStep(
+  page: Page,
+  gridStep: NonNullable<Scenario['gridStep']>,
+) {
+  if (gridStep === 'default') return;
+  const control = page.getByLabel('Grid step');
+  await control.focus();
+  await control.press('Home');
+}
+
 async function watchPreviewImageDraws(page: Page) {
   await page.evaluate(() => {
     const windowWithDraws = window as Window & {
@@ -135,7 +147,7 @@ async function watchPreviewImageDraws(page: Page) {
     ) {
       const instrumentationStartedAt = performance.now();
       if (
-        this.canvas.getAttribute('aria-label') === 'ASCII preview' &&
+        this.canvas.getAttribute('aria-label')?.endsWith('preview') &&
         args[0] instanceof ImageBitmap
       ) {
         windowWithDraws.__previewDrawTimes.push(performance.now());
@@ -155,13 +167,21 @@ async function prepareScenario(
   await page.goto(withDiagnostics ? '/?previewDiagnostics=1' : '/');
   await watchPreviewImageDraws(page);
   await page.getByLabel('Choose source video').setInputFiles(scenario.input);
-  await expect(page.getByLabel('ASCII preview')).toBeVisible({
-    timeout: 60_000,
-  });
   await expect(page.getByLabel('Play preview')).toBeVisible({
     timeout: 60_000,
   });
-  await setDensity(page, scenario.density);
+  if (scenario.mode === 'Pixelated') {
+    await page.getByLabel('Render mode').selectOption('Pixelated');
+    await expect(page.getByLabel('Pixelated preview')).toBeVisible({
+      timeout: 60_000,
+    });
+    await setPixelatedGridStep(page, scenario.gridStep ?? 'default');
+  } else {
+    await expect(page.getByLabel('ASCII preview')).toBeVisible({
+      timeout: 60_000,
+    });
+    await setDensity(page, scenario.density);
+  }
   if (scenario.sourceColor) await page.getByLabel('Source-color mode').check();
   await page.getByLabel('Play preview').click();
   await expect(page.getByLabel('Pause preview')).toBeVisible();
@@ -176,7 +196,9 @@ async function measureWindow(
   const report = await page.evaluate(
     async ({ scenarioName, repetitionNumber }) => {
       const canvas = document.querySelector<HTMLCanvasElement>(
-        'canvas[aria-label="ASCII preview"]',
+        scenarioName.startsWith('pixelated-')
+          ? 'canvas[aria-label="Pixelated preview"]'
+          : 'canvas[aria-label="ASCII preview"]',
       );
       const position = document.querySelector<HTMLInputElement>(
         'input[aria-label="Preview position"]',
@@ -422,15 +444,22 @@ async function measureWindow(
       frameRate: scenario.mediaFrameRate,
       durationSeconds: scenario.mediaDurationSeconds,
     },
-    treatment: {
-      densityColumns:
-        scenario.density === 'low'
-          ? 24
-          : scenario.density === 'high'
-            ? 160
-            : 88,
-      sourceColor: scenario.sourceColor,
-    },
+    treatment:
+      scenario.mode === 'Pixelated'
+        ? {
+            mode: scenario.mode,
+            gridStep: scenario.gridStep === 'finest' ? 4 : 8,
+          }
+        : {
+            mode: 'ASCII',
+            densityColumns:
+              scenario.density === 'low'
+                ? 24
+                : scenario.density === 'high'
+                  ? 160
+                  : 88,
+            sourceColor: scenario.sourceColor,
+          },
   };
 }
 
@@ -620,10 +649,61 @@ test('records repeated preview playback measurements for the opt-in browser matr
       density: 'default',
       sourceColor: false,
     },
+    {
+      name: 'pixelated-landscape-default-gridstep',
+      input: fixtures.landscape12,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 12,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'default',
+    },
+    {
+      name: 'pixelated-landscape-finest-gridstep',
+      input: fixtures.landscape12,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 12,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'finest',
+    },
+    {
+      name: 'pixelated-portrait-default-gridstep',
+      input: fixtures.portrait12,
+      mediaWidth: 180,
+      mediaHeight: 320,
+      mediaFrameRate: 12,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'default',
+    },
+    {
+      name: 'pixelated-portrait-finest-gridstep',
+      input: fixtures.portrait12,
+      mediaWidth: 180,
+      mediaHeight: 320,
+      mediaFrameRate: 12,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'finest',
+    },
   ];
   const selectedScenario = process.env.PREVIEW_PERF_SCENARIO;
+  const selectedScenarioNames = selectedScenario
+    ?.split(',')
+    .map((name) => name.trim());
   const selectedScenarios = selectedScenario
-    ? scenarios.filter((scenario) => scenario.name === selectedScenario)
+    ? scenarios.filter((scenario) => selectedScenarioNames?.includes(scenario.name))
     : scenarios;
   if (!selectedScenarios.length)
     throw new Error(`Unknown PREVIEW_PERF_SCENARIO: ${selectedScenario}`);
