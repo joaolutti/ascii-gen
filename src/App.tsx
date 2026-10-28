@@ -753,7 +753,11 @@ export default function App() {
                 disabled={controlsDisabled}
                 aria-label={playing ? 'Pause preview' : 'Play preview'}
                 onClick={() => {
-                  if (playing) setCurrentTime(playbackTimeRef.current);
+                  if (playing) {
+                    previewGenerationRef.current++;
+                    dispatchGeneration({ type: 'invalidate' });
+                    setCurrentTime(playbackTimeRef.current);
+                  }
                   setPlaying(!playing);
                 }}
               >
