@@ -247,9 +247,13 @@ async function getPreviewSample(timestamp: number) {
   if (!sink) return null;
   const absoluteTimestamp =
     firstTimestamp + Math.min(Math.max(0, timestamp), duration - 0.001);
+  const previewTimeDelta = previewCurrentSample
+    ? absoluteTimestamp - previewCurrentSample.timestamp
+    : 0;
+  const seekRestartThreshold = Math.max(0.5, 4 / sourceFrameRate);
   if (
     previewCurrentSample &&
-    absoluteTimestamp + 1e-6 < previewCurrentSample.timestamp
+    (previewTimeDelta < -1e-6 || previewTimeDelta > seekRestartThreshold)
   ) {
     startPreviewSamples(absoluteTimestamp);
   } else if (!previewSamples) {
