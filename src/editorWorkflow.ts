@@ -1,5 +1,21 @@
 export type OutputKind = 'mp4' | 'ascii-code';
 
+export type SourceSession =
+  | { tag: 'empty' }
+  | { tag: 'usable'; name: string; duration: number; frameRate: number };
+
+export type SourceCandidate =
+  | { tag: 'idle' }
+  | { tag: 'checking'; name: string; requestId: number }
+  | { tag: 'rejected'; name: string; message: string };
+
+export type OutputCapabilities = {
+  mp4: 'checking' | 'available' | 'unavailable';
+  asciiCode: 'available' | 'unavailable';
+};
+
+export type PlaybackWorkflow = { tag: 'paused' } | { tag: 'playing' };
+
 export type GenerationWorkflow =
   | { tag: 'idle' }
   | {

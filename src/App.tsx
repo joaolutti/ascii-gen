@@ -4,6 +4,10 @@ import type { CharacterPreset, RenderMode, Treatment } from './treatment';
 import {
   generationWorkflowReducer,
   initialGenerationWorkflow,
+  type OutputCapabilities,
+  type PlaybackWorkflow,
+  type SourceCandidate,
+  type SourceSession,
 } from './editorWorkflow';
 
 function formatTime(seconds: number) {
@@ -76,15 +80,21 @@ export default function App() {
   const activeCodeBundleRef = useRef<number | undefined>(undefined);
   const exportOperationIdRef = useRef(0);
   const activeExportRef = useRef<number | undefined>(undefined);
-  const [name, setName] = useState('');
+  const sourceRequestIdRef = useRef(0);
+  const [source, setSource] = useState<SourceSession>({ tag: 'empty' });
+  const [candidate, setCandidate] = useState<SourceCandidate>({ tag: 'idle' });
+  const [capabilities, setCapabilities] = useState<OutputCapabilities>({
+    mp4: 'unavailable',
+    asciiCode: 'unavailable',
+  });
+  const name = source.tag === 'usable' ? source.name : '';
+  const duration = source.tag === 'usable' ? source.duration : 0;
   const [message, setMessage] = useState('Choose a short H.264 MP4 to begin.');
-  const [canExport, setCanExport] = useState(false);
-  const [canGenerateBundle, setCanGenerateBundle] = useState(false);
   const [generation, dispatchGeneration] = useReducer(
     generationWorkflowReducer,
     initialGenerationWorkflow,
   );
-  const [checkingReplacement, setCheckingReplacement] = useState(false);
+  const checkingReplacement = candidate.tag === 'checking';
   const exporting =
     (generation.tag === 'running' || generation.tag === 'canceling') &&
     generation.output === 'mp4';
@@ -97,13 +107,16 @@ export default function App() {
       : generation.tag === 'completed'
         ? 1
         : 0;
+  const canExport = capabilities.mp4 === 'available';
+  const canGenerateBundle = capabilities.asciiCode === 'available';
   const generationRef = useRef(generation);
   generationRef.current = generation;
   const [downloadUrl, setDownloadUrl] = useState('');
   const [bundleUrl, setBundleUrl] = useState('');
-  const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playback, setPlayback] = useState<PlaybackWorkflow>({ tag: 'paused' });
+  const playing = playback.tag === 'playing';
+  const setPlaying = (value: boolean) => setPlayback({ tag: value ? 'playing' : 'paused' });
   const [mode, setMode] = useState<RenderMode>('ASCII');
   const [treatments, setTreatments] = useState<Record<RenderMode, Treatment>>({
     ASCII: defaultTreatment,
@@ -189,7 +202,8 @@ export default function App() {
       return;
     }
     if (pendingWorkerRef.current) releaseWorker(pendingWorkerRef.current);
-    setCheckingReplacement(true);
+    const requestId = ++sourceRequestIdRef.current;
+    setCandidate({ tag: 'checking', name: file.name, requestId });
     setMessage('Checking replacement video locally…');
     const worker = new Worker(new URL('./video.worker.ts', import.meta.url), {
       type: 'module',
@@ -200,7 +214,7 @@ export default function App() {
     const reject = (reason: string) => {
       if (pendingWorkerRef.current !== worker) return;
       pendingWorkerRef.current = null;
-      setCheckingReplacement(false);
+      setCandidate({ tag: 'rejected', name: file.name, message: reason });
       initialPreview?.close();
       releaseWorker(worker);
       setMessage(reason);
@@ -227,7 +241,7 @@ export default function App() {
       const previous = workerRef.current;
       workerRef.current = worker;
       pendingWorkerRef.current = null;
-      setCheckingReplacement(false);
+      setCandidate({ tag: 'idle' });
       if (previous) releaseWorker(previous);
       previewSequenceRef.current = 0;
       previewGenerationRef.current++;
@@ -240,11 +254,12 @@ export default function App() {
         return '';
       });
       setBundleUrl('');
-      setName(file.name);
-      setCanExport(false);
-      setCanGenerateBundle(typeof CompressionStream === 'function');
+      setSource({ tag: 'usable', name: file.name, duration: reply.duration, frameRate: reply.frameRate });
+      setCapabilities({
+        mp4: 'checking',
+        asciiCode: typeof CompressionStream === 'function' ? 'available' : 'unavailable',
+      });
       dispatchGeneration({ type: 'invalidate' });
-      setDuration(reply.duration);
       setCurrentTime(0);
       playbackTimeRef.current = 0;
       setPlaying(false);
@@ -303,7 +318,10 @@ export default function App() {
             supported = false;
           }
           if (workerRef.current !== worker) return;
-          setCanExport(supported);
+          setCapabilities((current) => ({
+            ...current,
+            mp4: supported ? 'available' : 'unavailable',
+          }));
           if (!supported) setMessage('Source video ready. This browser cannot encode H.264 MP4 on this device.');
           else setMessage('Source video ready.');
         })();
@@ -487,7 +505,7 @@ export default function App() {
                 className={styles.playButton}
                 disabled={controlsDisabled}
                 aria-label={playing ? 'Pause preview' : 'Play preview'}
-                onClick={() => setPlaying((value) => !value)}
+                onClick={() => setPlaying(!playing)}
               >
                 {playing ? 'Pause' : 'Play'}
               </button>
