@@ -96,6 +96,16 @@ After the highlight change, the same four cases produced:
 
 The measured highlight cost is small on this Chromium machine, with no Long Tasks in the post-change windows. The shared 12 fps playback cadence remains below the 90% target. Chrome and Edge remain unmeasured, so #26's browser acceptance gate is open.
 
+### Playback scheduler cadence correction
+
+After the highlight comparison, the editor scheduler was adjusted to preserve fractional frame deadlines across animation-frame ticks. It allows a 1 ms timing tolerance at refresh-rate boundaries, advances from the previous deadline to avoid cumulative drift, and resynchronizes after a long pause. Playback still caps at 30 requests per second. React updates the visible playback position four times per second while preview frames publish at the source cadence.
+
+The complete 12-scenario matrix was repeated on the same Chromium machine with three 11-second windows per scenario. All cases now meet the 90% displayed-cadence target: 12 fps sources rendered 12.0–12.1 draws per second; 23.976 fps rendered 24; and 30, 60, and near-limit 1080p60 sources rendered about 30. The four Pixelated configurations rendered 12.0–12.1 draws per second. The highest scenario-median worker p95 was 17.7 ms (portrait ASCII), below its 83.3 ms source interval. No Long Tasks, stale replies, or queue replacements were observed. The default landscape 12 fps control also measured 12.1 draws per second both with and without app/worker diagnostics, a 0% cadence difference.
+
+The 1080p60 near-limit case now reaches about 30 draws per second with 14.7 ms worker p95. Its seek p95 improved from 688.5 ms after canvas reuse to 520 ms, and still misses the 150 ms budget. Appearance p95 was 42.1 ms. Keep #13 open for the remaining seek latency work. The scheduler now passes the cadence hypothesis on this Chromium setup; Chrome and Edge remain unmeasured.
+
+The Pixelated cases after both highlights and scheduler tuning measured worker p95 of 6.8 ms (landscape default), 9.8 ms (landscape finest), 5.4 ms (portrait default), and 10.4 ms (portrait finest). Their seek / appearance p95 values were 25.9 / 26.7 ms, 28.6 / 42.3 ms, 27.8 / 26.4 ms, and 29 / 43 ms respectively. This completes the Chromium visual-treatment performance gate for #26, while Chrome and Edge remain to be checked.
+
 Canvas draw calls measure frames painted by the app, not monitor presentation or perceived smoothness. Long Tasks and JavaScript heap samples cover the page main thread only. They do not include the worker, decoded-frame memory, GPU allocations, or total browser-process memory. The fixtures exercise maximum duration, dimensions, and cadence together; they do not approach the 100 MB file-size limit. The matrix combines source-color mode with default density only; it does not test every density/color combination.
 
 ## Remaining validation
