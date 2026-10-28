@@ -81,14 +81,25 @@ The same Chromium build, machine, fixture cadence, diagnostics, and three 11-sec
 | Portrait, default 8 px | 10.5 | 102.8 ms | 4.8 ms | 24 / 24 ms | 15.1 MiB |
 | Portrait, finest 4 px | 10.5 | 102.6 ms | 7.4 ms | 29 / 25 ms | 20.5 MiB |
 
-All four configurations have 16.7–16.8 ms main-thread rAF p95, no Long Tasks, no stale replies, and no queue replacements. Worker time remains well below the 12 fps frame interval, so no Pixelated-specific drawing optimization was indicated by this baseline. Actual displayed cadence is still about 87% of the 12 fps source, below the 90% hypothesis used for #13. Chrome and Edge remain unmeasured.
+All four configurations have 16.7–16.8 ms main-thread rAF p95, no Long Tasks, no stale replies, and no queue replacements. This pre-highlight baseline had worker time well below the 12 fps frame interval. Actual displayed cadence was still about 87% of the 12 fps source, below the 90% hypothesis used for #13.
 
-The October 23 reference recording (`/home/jl/Videos/screenrecording-2026-10-23_17-39-02.mp4`) shows gold fish on black, regular square cells, recognizable silhouettes, internal tonal variation, and bright glow-like speckles. A local fish source was rendered through Pixelated mode (`/home/jl/Downloads/173684-849839047_tiny_trimmed.mp4`); its different composition prevents an exact motion/silhouette comparison, but the output preserves regular gold cells, visible fish silhouettes, and cell-level tonal detail. It has no glow or luminous speckles. That difference is recorded for an explicit treatment decision; the renderer has not been changed to add glow, dithering, or a tonal-mapping variant.
+The October 23 reference recording (`/home/jl/Videos/screenrecording-2026-10-23_17-39-02.mp4`) shows gold fish on black, regular square cells, recognizable silhouettes, internal tonal variation, and bright glow-like speckles. A local fish source was rendered through Pixelated mode (`/home/jl/Downloads/173684-849839047_tiny_trimmed.mp4`); its different composition prevents an exact motion/silhouette comparison, but the output preserves regular gold cells, visible fish silhouettes, and cell-level tonal detail. With the user's approval, the brightest cells now have soft gold halos and pale core highlights. Dithering and tonal-mapping changes were not introduced.
+
+After the highlight change, the same four cases produced:
+
+| Scenario | Draws/s, before → after | p95 worker, before → after | p95 draw gap, before → after | p95 seek / appearance after | Peak page heap after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Landscape, default 8 px | 10.4 → 10.5 | 4.5 → 4.6 ms | 102.7 → 102.2 ms | 26 / 26 ms | 12.2 MiB |
+| Landscape, finest 4 px | 10.5 → 10.4 | 7.6 → 8.1 ms | 103.1 → 102.3 ms | 28 / 43 ms | 12.6 MiB |
+| Portrait, default 8 px | 10.5 → 10.5 | 4.8 → 4.8 ms | 102.8 → 102.2 ms | 50 / 27 ms | 19.0 MiB |
+| Portrait, finest 4 px | 10.5 → 10.4 | 7.4 → 10.8 ms | 102.6 → 102.7 ms | 30 / 44 ms | 25.3 MiB |
+
+The measured highlight cost is small on this Chromium machine, with no Long Tasks in the post-change windows. The shared 12 fps playback cadence remains below the 90% target. Chrome and Edge remain unmeasured, so #26's browser acceptance gate is open.
 
 Canvas draw calls measure frames painted by the app, not monitor presentation or perceived smoothness. Long Tasks and JavaScript heap samples cover the page main thread only. They do not include the worker, decoded-frame memory, GPU allocations, or total browser-process memory. The fixtures exercise maximum duration, dimensions, and cadence together; they do not approach the 100 MB file-size limit. The matrix combines source-color mode with default density only; it does not test every density/color combination.
 
 ## Remaining validation
 
-The Pixelated visual difference in the local comparison is documented above; a decision on adding glow-like highlights remains open. Chrome and Edge performance runs also remain open because neither browser is installed in this environment. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
+The Pixelated comparison and approved highlight treatment are documented above. Chrome and Edge performance runs remain open because neither browser is installed in this environment. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
 
 The media stays local as required by ADR-0001. Playback tuning does not change the selected treatment or reduce export fidelity.

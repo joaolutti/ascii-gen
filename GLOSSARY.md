@@ -13,7 +13,7 @@ A video whose frames represent the source video's imagery as a regular grid of t
 _Avoid_: ASCII animation, text video
 
 **Pixelated video**:
-A video whose frames represent the source imagery as a regular grid of square cells. Cell brightness determines square size, and the active mode's foreground and background colors determine their appearance.
+A video whose frames represent the source imagery as a regular grid of square cells. Cell brightness determines square size, and the active mode's foreground and background colors determine their appearance. The brightest cells receive a soft halo and a pale core highlight.
 _Avoid_: pixel art, mosaic mode
 
 **ASCII code output**:

@@ -42,14 +42,57 @@ test('previews and exports the Pixelated square-cell treatment', async ({
   const download = await downloadPromise;
   const output = await download.path();
   expect(output).toBeTruthy();
+  const metadata = JSON.parse(
+    execFileSync(
+      'ffprobe',
+      [
+        '-v',
+        'error',
+        '-count_frames',
+        '-show_entries',
+        'stream=codec_type,width,height,avg_frame_rate,nb_read_frames:format=duration',
+        '-of',
+        'json',
+        output!,
+      ],
+      { encoding: 'utf8' },
+    ),
+  ) as {
+    streams: Array<{
+      codec_type: string;
+      width?: number;
+      height?: number;
+      avg_frame_rate?: string;
+      nb_read_frames?: string;
+    }>;
+    format: { duration: string };
+  };
+  const video = metadata.streams.find((stream) => stream.codec_type === 'video');
+  expect(metadata.streams.filter((stream) => stream.codec_type === 'audio')).toHaveLength(0);
+  expect(video).toMatchObject({
+    width: 320,
+    height: 180,
+    avg_frame_rate: '12/1',
+    nb_read_frames: '24',
+  });
+  expect(Number(metadata.format.duration)).toBeCloseTo(2, 1);
+
   const frame = execFileSync('ffmpeg', [
     '-v', 'error', '-i', output!, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1',
   ]);
   let amberPixels = 0;
+  let paleHighlightPixels = 0;
   for (let index = 0; index < frame.length; index += 3)
     if (frame[index]! > 190 && frame[index + 1]! > 115 && frame[index + 1]! < 220 && frame[index + 2]! < 125)
       amberPixels++;
+    else if (
+      frame[index]! > 220 &&
+      frame[index + 1]! > 185 &&
+      frame[index + 2]! > 100
+    )
+      paleHighlightPixels++;
   expect(amberPixels).toBeGreaterThan(20);
+  expect(paleHighlightPixels).toBeGreaterThan(0);
 });
 
 test('keeps ASCII and Pixelated settings independent and resets only the active mode', async ({ page }) => {

@@ -165,6 +165,9 @@ function drawFrame(
   const spacing = Math.max(0, Math.min(0.8, treatment.spacing / 100));
   const columns = Math.max(1, Math.round(target.width / step));
   const rows = Math.max(1, Math.round(target.height / step));
+  const glowBlur = step * 0.9;
+  const highlightThreshold = 0.82;
+  const coreThreshold = 0.91;
   for (let row = 0; row < rows; row++) {
     const y = target.height / 2 + (row - (rows - 1) / 2) * step;
     for (let column = 0; column < columns; column++) {
@@ -199,11 +202,29 @@ function drawFrame(
       if (treatment.inverted) brightness = 1 - brightness;
       const side = step * (1 - spacing) * brightness;
       if (side > 0) {
+        const isHighlight = brightness >= highlightThreshold;
+        context.shadowColor = isHighlight
+          ? treatment.foreground
+          : 'transparent';
+        context.shadowBlur = isHighlight ? glowBlur : 0;
         context.fillStyle = treatment.foreground;
         context.fillRect(x - side / 2, y - side / 2, side, side);
+        if (brightness >= coreThreshold) {
+          context.shadowBlur = 0;
+          context.fillStyle = '#fff0c2';
+          const coreSide = Math.max(1, side * 0.28);
+          context.fillRect(
+            x - coreSide / 2,
+            y - coreSide / 2,
+            coreSide,
+            coreSide,
+          );
+        }
       }
     }
   }
+  context.shadowBlur = 0;
+  context.shadowColor = 'transparent';
 }
 
 function closePreviewSamples() {

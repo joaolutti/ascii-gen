@@ -30,7 +30,7 @@ Provide these controls:
 - **Character preset:** Classic, Minimal, or Binary.
 - **Foreground color** and **background color:** freely selectable, defaulting to white characters on near-black.
 - **Source-color mode:** sample character colors from the source video while keeping the background color independently selectable. Brightness still determines character selection.
-- **Pixelated mode:** represent each frame with brightness-sized square cells. Its independent **Grid step** sets the base cell width and height in output pixels (4–40 px, default 8 px); **Cell spacing** sets the percent of each cell left empty around the square (0–80%, default 25%). The default foreground is gold (`#ffb547`) on black (`#000000`). Brightness, contrast, and inversion remain adjustable.
+- **Pixelated mode:** represent each frame with brightness-sized square cells. Its independent **Grid step** sets the base cell width and height in output pixels (4–40 px, default 8 px); **Cell spacing** sets the percent of each cell left empty around the square (0–80%, default 25%). The default foreground is gold (`#ffb547`) on black (`#000000`). Bright cells have a soft gold halo, and the brightest cells have a pale core highlight. Brightness, contrast, and inversion remain adjustable.
 
 The three starting character presets are:
 
@@ -75,7 +75,7 @@ Deferred from the first version:
 
 - Custom characters.
 - Source audio preservation.
-- Additional effects, including glow, glitch, and CRT distortion.
+- Glitch and CRT distortion.
 - Accounts and saved projects.
 - Batch conversion.
 - Additional download formats and export quality settings.
@@ -100,4 +100,4 @@ Cover input and capability failures, rendering controls, playback, replacement a
 
 ## Inspiration
 
-The user supplied [this tweet](https://x.com/kail_designs/status/2113322781513592958?s=20) as inspiration for Pixelated mode. An October 23 screen recording is available locally and shows an animated gold fish with dark outlines, regular square spacing, internal tonal detail, and bright highlights. The current base treatment uses gold brightness-sized squares on black and preserves a recognizable silhouette with cell-level tonal detail; it does not add glow or dithering. A final judgment about luminous highlights remains open pending the explicit visual-treatment decision recorded in the Pixelated performance notes. Source video processing stays on the user's device as specified above and in [ADR-0001](adr/0001-local-video-processing.md).
+The user supplied [this tweet](https://x.com/kail_designs/status/2113322781513592958?s=20) as inspiration for Pixelated mode. An October 23 screen recording is available locally and shows an animated gold fish with dark outlines, regular square spacing, internal tonal detail, and bright highlights. The user approved adding soft gold halos and pale core highlights to the brightest cells. This additive treatment leaves square spacing and brightness-to-size mapping unchanged; dithering remains out of scope. Source video processing stays on the user's device as specified above and in [ADR-0001](adr/0001-local-video-processing.md).
