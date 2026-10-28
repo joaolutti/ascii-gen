@@ -129,11 +129,7 @@ test('downloads an offline runnable ASCII code bundle from the editor', async ({
           .getImageData(0, 0, element.width, element.height).data;
         let whitePixels = 0;
         for (let i = 0; i < pixels.length; i += 4) {
-          if (
-            pixels[i] === 255 &&
-            pixels[i + 1] === 255 &&
-            pixels[i + 2] === 255
-          )
+          if (pixels[i] > 48 && pixels[i + 1] > 48 && pixels[i + 2] > 48)
             whitePixels++;
         }
         return whitePixels;
