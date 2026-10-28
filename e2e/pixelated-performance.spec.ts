@@ -11,7 +11,7 @@ type Scenario = {
   mediaHeight: number;
   mediaFrameRate: number;
   mediaDurationSeconds: number;
-  density: 'default' | 'high';
+  density: 'low' | 'default' | 'high';
   sourceColor: boolean;
 };
 
@@ -49,9 +49,17 @@ function prepareFixtures() {
       'landscape-320x180-12fps',
       'testsrc2=size=320x180:rate=12:duration=2',
     ),
+    landscape23976: createFixture(
+      'landscape-320x180-23_976fps',
+      'testsrc2=size=320x180:rate=24000/1001:duration=2.002',
+    ),
     portrait12: createFixture(
       'portrait-180x320-12fps',
       'testsrc2=size=180x320:rate=12:duration=2',
+    ),
+    landscape60: createFixture(
+      'landscape-320x180-60fps',
+      'testsrc2=size=320x180:rate=60:duration=2',
     ),
     landscape30: createFixture(
       'landscape-320x180-30fps',
@@ -68,15 +76,55 @@ async function setDensity(page: Page, density: Scenario['density']) {
   if (density === 'default') return;
   const control = page.getByLabel('Density');
   await control.focus();
-  await control.press('End');
+  await control.press(density === 'low' ? 'Home' : 'End');
 }
 
 async function watchPreviewImageDraws(page: Page) {
   await page.evaluate(() => {
     const windowWithDraws = window as Window & {
       __previewDrawTimes: number[];
+      __previewInstrumentationCostMs: number;
+      __asciiPreviewDiagnostics: {
+        requests: {
+          sequence: number;
+          generationId: number;
+          timestamp: number;
+          sentAt: number;
+        }[];
+        replies: {
+          sequence: number;
+          generationId: number;
+          receivedAt: number;
+          diagnostics?: {
+            sampleLookupDecodeMs: number;
+            drawFrameMs: number;
+            bitmapCreationMs: number;
+            workerTotalMs: number;
+            replacedPendingPreviewCount: number;
+          };
+        }[];
+        presentations: {
+          sequence: number;
+          generationId: number;
+          requestToPresentationMs: number | null;
+          replyToPresentationMs: number | null;
+          drawImageMs: number;
+        }[];
+        droppedReplies: {
+          sequence: number;
+          generationId: number;
+          reason: string;
+        }[];
+      };
     };
     windowWithDraws.__previewDrawTimes = [];
+    windowWithDraws.__previewInstrumentationCostMs = 0;
+    windowWithDraws.__asciiPreviewDiagnostics = {
+      requests: [],
+      replies: [],
+      presentations: [],
+      droppedReplies: [],
+    };
     const prototype = CanvasRenderingContext2D.prototype as unknown as {
       drawImage: (...args: unknown[]) => void;
     };
@@ -85,15 +133,39 @@ async function watchPreviewImageDraws(page: Page) {
       this: CanvasRenderingContext2D,
       ...args: unknown[]
     ) {
+      const instrumentationStartedAt = performance.now();
       if (
         this.canvas.getAttribute('aria-label') === 'ASCII preview' &&
         args[0] instanceof ImageBitmap
       ) {
         windowWithDraws.__previewDrawTimes.push(performance.now());
       }
+      windowWithDraws.__previewInstrumentationCostMs +=
+        performance.now() - instrumentationStartedAt;
       return originalDrawImage.apply(this, args);
     };
   });
+}
+
+async function prepareScenario(
+  page: Page,
+  scenario: Scenario,
+  withDiagnostics: boolean,
+) {
+  await page.goto(withDiagnostics ? '/?previewDiagnostics=1' : '/');
+  await watchPreviewImageDraws(page);
+  await page.getByLabel('Choose source video').setInputFiles(scenario.input);
+  await expect(page.getByLabel('ASCII preview')).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByLabel('Play preview')).toBeVisible({
+    timeout: 60_000,
+  });
+  await setDensity(page, scenario.density);
+  if (scenario.sourceColor) await page.getByLabel('Source-color mode').check();
+  await page.getByLabel('Play preview').click();
+  await expect(page.getByLabel('Pause preview')).toBeVisible();
+  await page.waitForTimeout(500);
 }
 
 async function measureWindow(
@@ -113,9 +185,48 @@ async function measureWindow(
         throw new Error('Preview controls were not ready');
       const windowWithDraws = window as Window & {
         __previewDrawTimes?: number[];
+        __previewInstrumentationCostMs?: number;
+        __asciiPreviewDiagnostics?: {
+          requests: {
+            sequence: number;
+            generationId: number;
+            sentAt: number;
+          }[];
+          replies: {
+            sequence: number;
+            generationId: number;
+            receivedAt: number;
+            diagnostics?: {
+              sampleLookupDecodeMs: number;
+              drawFrameMs: number;
+              bitmapCreationMs: number;
+              workerTotalMs: number;
+              replacedPendingPreviewCount: number;
+            };
+          }[];
+          presentations: {
+            sequence: number;
+            generationId: number;
+            requestToPresentationMs: number | null;
+            replyToPresentationMs: number | null;
+            drawImageMs: number;
+          }[];
+          droppedReplies: {
+            sequence: number;
+            generationId: number;
+            reason: string;
+          }[];
+        };
       };
       const previewDrawTimes = windowWithDraws.__previewDrawTimes ?? [];
+      const diagnostics = windowWithDraws.__asciiPreviewDiagnostics;
       const firstDrawIndex = previewDrawTimes.length;
+      const firstRequestIndex = diagnostics?.requests.length ?? 0;
+      const firstReplyIndex = diagnostics?.replies.length ?? 0;
+      const firstPresentationIndex = diagnostics?.presentations.length ?? 0;
+      const firstDroppedReplyIndex = diagnostics?.droppedReplies.length ?? 0;
+      const instrumentationCostAtStart =
+        windowWithDraws.__previewInstrumentationCostMs ?? 0;
 
       const gaps: number[] = [];
       const heapSamples: number[] = [];
@@ -126,6 +237,7 @@ async function measureWindow(
       let positionChanges = 0;
       let finished = false;
       const start = performance.now();
+      let lastHeapSampleAt = start;
       const observer =
         typeof PerformanceObserver === 'undefined'
           ? null
@@ -161,7 +273,10 @@ async function measureWindow(
               memory?: { usedJSHeapSize: number };
             }
           ).memory;
-          if (memory) heapSamples.push(memory.usedJSHeapSize);
+          if (memory && now - lastHeapSampleAt >= 1_000) {
+            heapSamples.push(memory.usedJSHeapSize);
+            lastHeapSampleAt = now;
+          }
           if (now - start >= 11_000) finish();
           else requestAnimationFrame(tick);
         };
@@ -175,9 +290,10 @@ async function measureWindow(
             Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))
           ] ?? 0;
         return {
-          p50: Number(percentile(0.5).toFixed(1)),
-          p95: Number(percentile(0.95).toFixed(1)),
-          max: Number(Math.max(...values).toFixed(1)),
+          count: sorted.length,
+          p50: sorted.length ? Number(percentile(0.5).toFixed(1)) : null,
+          p95: sorted.length ? Number(percentile(0.95).toFixed(1)) : null,
+          max: sorted.length ? Number(Math.max(...values).toFixed(1)) : null,
         };
       };
       const drawTimes = previewDrawTimes.slice(firstDrawIndex);
@@ -191,6 +307,46 @@ async function measureWindow(
             maxBytes: Math.max(...heapSamples),
           }
         : null;
+      const requests = diagnostics?.requests.slice(firstRequestIndex) ?? [];
+      const replies = diagnostics?.replies.slice(firstReplyIndex) ?? [];
+      const presentations =
+        diagnostics?.presentations.slice(firstPresentationIndex) ?? [];
+      const droppedReplies =
+        diagnostics?.droppedReplies.slice(firstDroppedReplyIndex) ?? [];
+      const requestTimes = new Map(
+        requests.map((request) => [
+          `${request.generationId}:${request.sequence}`,
+          request.sentAt,
+        ]),
+      );
+      const requestToReplyGaps = replies.flatMap((reply) => {
+        const requestedAt = requestTimes.get(
+          `${reply.generationId}:${reply.sequence}`,
+        );
+        return requestedAt === undefined
+          ? []
+          : [reply.receivedAt - requestedAt];
+      });
+      const matchedReplies = replies.filter((reply) =>
+        requestTimes.has(`${reply.generationId}:${reply.sequence}`),
+      );
+      const summarizeStage = (
+        key:
+          | 'sampleLookupDecodeMs'
+          | 'drawFrameMs'
+          | 'bitmapCreationMs'
+          | 'workerTotalMs',
+      ) =>
+        summarizeIntervals(
+          matchedReplies.flatMap((reply) =>
+            reply.diagnostics ? [reply.diagnostics[key]] : [],
+          ),
+        );
+      const workerReplacements = matchedReplies.flatMap((reply) =>
+        reply.diagnostics
+          ? [reply.diagnostics.replacedPendingPreviewCount]
+          : [],
+      );
       return {
         scenario: scenarioName,
         repetition: repetitionNumber,
@@ -207,6 +363,46 @@ async function measureWindow(
           (drawTimes.length / elapsedSeconds).toFixed(1),
         ),
         previewImageGapMs: summarizeIntervals(drawGaps),
+        requestToReplyMs: summarizeIntervals(requestToReplyGaps),
+        requestToPresentationMs: summarizeIntervals(
+          presentations.flatMap((item) =>
+            item.requestToPresentationMs === null
+              ? []
+              : [item.requestToPresentationMs],
+          ),
+        ),
+        replyToPresentationMs: summarizeIntervals(
+          presentations.map((item) => item.replyToPresentationMs),
+        ),
+        drawImageMs: summarizeIntervals(
+          presentations.map((item) => item.drawImageMs),
+        ),
+        workerStageMs: {
+          sampleLookupDecode: summarizeStage('sampleLookupDecodeMs'),
+          frameRender: summarizeStage('drawFrameMs'),
+          bitmapCreation: summarizeStage('bitmapCreationMs'),
+          total: summarizeStage('workerTotalMs'),
+        },
+        previewQueue: {
+          requests: requests.length,
+          replies: matchedReplies.length,
+          presentations: presentations.filter(
+            (item) => item.requestToPresentationMs !== null,
+          ).length,
+          staleReplies: droppedReplies.length,
+          replacedPendingRequests:
+            workerReplacements.length > 1
+              ? workerReplacements.at(-1)! - workerReplacements[0]!
+              : 0,
+          workerBound:
+            'one in-flight render plus one replaceable pending request',
+        },
+        instrumentationWrapperMs: Number(
+          (
+            (windowWithDraws.__previewInstrumentationCostMs ?? 0) -
+            instrumentationCostAtStart
+          ).toFixed(3),
+        ),
         previewPositionChanges: positionChanges,
         longTaskCount,
         longTaskDurationMs: Number(longTaskDurationMs.toFixed(1)),
@@ -226,6 +422,100 @@ async function measureWindow(
       frameRate: scenario.mediaFrameRate,
       durationSeconds: scenario.mediaDurationSeconds,
     },
+    treatment: {
+      densityColumns:
+        scenario.density === 'low'
+          ? 24
+          : scenario.density === 'high'
+            ? 160
+            : 88,
+      sourceColor: scenario.sourceColor,
+    },
+  };
+}
+
+async function measureRangeChangeLatency(
+  page: Page,
+  label: 'Preview position' | 'Brightness',
+  value: number,
+) {
+  return page
+    .getByRole('slider', { name: label })
+    .evaluate(async (input, nextValue) => {
+      const windowWithDraws = window as Window & {
+        __previewDrawTimes?: number[];
+      };
+      const draws = windowWithDraws.__previewDrawTimes;
+      if (!draws) throw new Error('Preview instrumentation was not installed');
+      const firstDraw = draws.length;
+      const startedAt = performance.now();
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      if (!setter) throw new Error('Range input value setter was unavailable');
+      setter.call(input, String(nextValue));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return new Promise<number>((resolve, reject) => {
+        const deadline = startedAt + 2_000;
+        const checkForPresentation = (now: number) => {
+          if (draws.length > firstDraw) {
+            resolve(now - startedAt);
+            return;
+          }
+          if (now >= deadline) {
+            reject(
+              new Error(
+                `${input.getAttribute('aria-label')} preview did not update`,
+              ),
+            );
+            return;
+          }
+          requestAnimationFrame(checkForPresentation);
+        };
+        requestAnimationFrame(checkForPresentation);
+      });
+    }, value);
+}
+
+function summarizeLatencies(values: number[]) {
+  const sorted = [...values].sort((left, right) => left - right);
+  const percentile = (fraction: number) =>
+    sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ??
+    0;
+  return {
+    samples: values.length,
+    p50Ms: Number(percentile(0.5).toFixed(1)),
+    p95Ms: Number(percentile(0.95).toFixed(1)),
+    maxMs: Number(Math.max(...values).toFixed(1)),
+  };
+}
+
+async function measureInteractionLatencies(page: Page, scenario: Scenario) {
+  if (await page.getByLabel('Pause preview').isVisible())
+    await page.getByLabel('Pause preview').click();
+  await expect(page.getByLabel('Play preview')).toBeVisible();
+  await page.waitForTimeout(150);
+  const seek = page.getByLabel('Preview position');
+  const duration = Number(await seek.getAttribute('max'));
+  const seekLatencies: number[] = [];
+  const appearanceLatencies: number[] = [];
+  for (let index = 0; index < 20; index++) {
+    const position = duration * ((((index * 7) % 20) + 1) / 21);
+    seekLatencies.push(
+      await measureRangeChangeLatency(page, 'Preview position', position),
+    );
+  }
+  for (let index = 0; index < 20; index++) {
+    appearanceLatencies.push(
+      await measureRangeChangeLatency(page, 'Brightness', -100 + index * 10),
+    );
+  }
+  return {
+    scenario: scenario.name,
+    seekLatency: summarizeLatencies(seekLatencies),
+    appearanceLatency: summarizeLatencies(appearanceLatencies),
   };
 }
 
@@ -236,10 +526,20 @@ test('records repeated preview playback measurements for the opt-in browser matr
     process.env.RUN_PREVIEW_PERF !== '1',
     'Set RUN_PREVIEW_PERF=1 to run the multi-minute playback benchmark.',
   );
-  test.setTimeout(480_000);
+  test.setTimeout(900_000);
 
   const fixtures = prepareFixtures();
   const scenarios: Scenario[] = [
+    {
+      name: 'landscape-12fps-low-density',
+      input: fixtures.landscape12,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 12,
+      mediaDurationSeconds: 2,
+      density: 'low',
+      sourceColor: false,
+    },
     {
       name: 'landscape-12fps-default-density',
       input: fixtures.landscape12,
@@ -291,6 +591,26 @@ test('records repeated preview playback measurements for the opt-in browser matr
       sourceColor: false,
     },
     {
+      name: 'landscape-23_976fps-default-density',
+      input: fixtures.landscape23976,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 24000 / 1001,
+      mediaDurationSeconds: 2.002,
+      density: 'default',
+      sourceColor: false,
+    },
+    {
+      name: 'landscape-60fps-default-density',
+      input: fixtures.landscape60,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 60,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+    },
+    {
       name: 'near-limit-1080p60-14_9s',
       input: fixtures.nearLimit,
       mediaWidth: 1920,
@@ -310,28 +630,74 @@ test('records repeated preview playback measurements for the opt-in browser matr
   const measurements: object[] = [];
   for (const scenario of selectedScenarios) {
     for (let repetition = 1; repetition <= 3; repetition++) {
-      await page.goto('/');
-      await watchPreviewImageDraws(page);
-      await page
-        .getByLabel('Choose source video')
-        .setInputFiles(scenario.input);
-      await expect(page.getByLabel('ASCII preview')).toBeVisible({
-        timeout: 60_000,
-      });
-      await expect(page.getByLabel('Play preview')).toBeVisible({
-        timeout: 60_000,
-      });
-      await setDensity(page, scenario.density);
-      if (scenario.sourceColor)
-        await page.getByLabel('Source-color mode').check();
-      await page.getByLabel('Play preview').click();
-      await expect(page.getByLabel('Pause preview')).toBeVisible();
-      await page.waitForTimeout(500);
+      await prepareScenario(page, scenario, true);
       const measurement = await measureWindow(page, scenario, repetition);
       expect(measurement.previewImageDrawCount).toBeGreaterThan(0);
-      measurements.push(measurement);
-      console.log(`PREVIEW_PERF ${JSON.stringify(measurement)}`);
+      const interactions =
+        repetition === 3
+          ? await measureInteractionLatencies(page, scenario)
+          : undefined;
+      const record = {
+        ...measurement,
+        ...(interactions ? { interactions } : {}),
+      };
+      measurements.push(record);
+      console.log(`PREVIEW_PERF ${JSON.stringify(record)}`);
     }
+  }
+
+  let instrumentationCalibration: object | undefined;
+  const calibrationScenario = selectedScenarios.find(
+    (scenario) => scenario.name === 'landscape-12fps-default-density',
+  );
+  if (calibrationScenario) {
+    const controlMeasurements: object[] = [];
+    for (let repetition = 1; repetition <= 3; repetition++) {
+      await prepareScenario(page, calibrationScenario, false);
+      const measurement = await measureWindow(
+        page,
+        calibrationScenario,
+        repetition,
+      );
+      controlMeasurements.push(measurement);
+      console.log(`PREVIEW_PERF_UNINSTRUMENTED ${JSON.stringify(measurement)}`);
+    }
+    const readDrawRates = (records: object[]) =>
+      records.map(
+        (record) =>
+          (record as { previewImageDrawHz: number }).previewImageDrawHz,
+      );
+    const median = (values: number[]) => {
+      const sorted = [...values].sort((left, right) => left - right);
+      return sorted[Math.floor(sorted.length / 2)] ?? 0;
+    };
+    const instrumentedMeasurements = measurements.filter(
+      (record) =>
+        (record as { scenario: string }).scenario === calibrationScenario.name,
+    );
+    const instrumentedDrawHz = median(readDrawRates(instrumentedMeasurements));
+    const uninstrumentedDrawHz = median(readDrawRates(controlMeasurements));
+    instrumentationCalibration = {
+      scenario: calibrationScenario.name,
+      repetitions: 3,
+      observationSeconds: 11,
+      mode: 'same canvas draw hook; worker and app diagnostics disabled',
+      instrumentedDrawHz,
+      uninstrumentedDrawHz,
+      drawRateDifferencePercent: Number(
+        (
+          ((instrumentedDrawHz - uninstrumentedDrawHz) / uninstrumentedDrawHz) *
+          100
+        ).toFixed(1),
+      ),
+      drawHookSelfTimeMs: instrumentedMeasurements.map(
+        (record) =>
+          (record as { instrumentationWrapperMs: number })
+            .instrumentationWrapperMs,
+      ),
+      limitations:
+        'The comparison estimates added worker/app diagnostic overhead; the canvas hook remains enabled in both modes and reports its measured self-time separately.',
+    };
   }
 
   const machine = {
@@ -341,7 +707,7 @@ test('records repeated preview playback measurements for the opt-in browser matr
     logicalCpus: cpus().length,
     memoryBytes: totalmem(),
   };
-  const result = { machine, measurements };
+  const result = { machine, measurements, instrumentationCalibration };
   writeFileSync(
     join(fixtureDir, 'results.json'),
     `${JSON.stringify(result, null, 2)}\n`,

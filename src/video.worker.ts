@@ -23,6 +23,7 @@ type Request =
   | {
       type: 'load';
       file: File;
+      previewDiagnostics?: boolean;
       testExportFailure?: boolean;
       testExportDelay?: number;
       testCodeBundleFailure?: boolean;
@@ -67,11 +68,19 @@ let track: Awaited<ReturnType<Input['getPrimaryVideoTrack']>>;
 let sink: VideoSampleSink | undefined;
 let canvas: OffscreenCanvas | undefined;
 let pendingPreview:
-  { timestamp: number; sequence: number; generationId: number; treatment: Treatment } | undefined;
+  | {
+      timestamp: number;
+      sequence: number;
+      generationId: number;
+      treatment: Treatment;
+    }
+  | undefined;
 let processingPreview = false;
 let previewSamples: ReturnType<VideoSampleSink['samples']> | undefined;
 let previewCurrentSample: VideoSample | undefined;
 let previewNextSample: VideoSample | undefined;
+let previewDiagnosticsEnabled = false;
+let replacedPendingPreviewCount = 0;
 let activeExportId: number | undefined;
 let canceledExportId: number | undefined;
 let activeOutput: Output | undefined;
@@ -137,7 +146,12 @@ function drawFrame(
   const sourceContext = source.getContext('2d', { willReadFrequently: true });
   if (!context || !sourceContext) throw new Error('Canvas 2D is unavailable.');
   sample.draw(sourceContext, 0, 0, target.width, target.height);
-  const pixels = sourceContext.getImageData(0, 0, target.width, target.height).data;
+  const pixels = sourceContext.getImageData(
+    0,
+    0,
+    target.width,
+    target.height,
+  ).data;
   context.fillStyle = treatment.background;
   context.fillRect(0, 0, target.width, target.height);
   const step = Math.max(1, treatment.gridStep);
@@ -324,7 +338,13 @@ async function load(sourceFile: File) {
   sample.close();
   const bitmap = await createImageBitmap(canvas);
   scope.postMessage(
-    { type: 'preview', bitmap, name: sourceFile.name, sequence: 0, generationId: 0 },
+    {
+      type: 'preview',
+      bitmap,
+      name: sourceFile.name,
+      sequence: 0,
+      generationId: 0,
+    },
     [bitmap],
   );
   scope.postMessage({
@@ -343,13 +363,42 @@ async function renderPreview(
   treatment: Treatment,
 ) {
   if (!sink || !canvas || !track) return;
+  const workerStartedAt = previewDiagnosticsEnabled ? performance.now() : 0;
+  const sampleStartedAt = workerStartedAt;
   const sample = await getPreviewSample(timestamp);
   if (!sample) return;
+  const sampleLookupDecodeMs = previewDiagnosticsEnabled
+    ? performance.now() - sampleStartedAt
+    : 0;
+  const drawStartedAt = previewDiagnosticsEnabled ? performance.now() : 0;
   drawFrame(sample, canvas, treatment);
   sample.close();
+  const drawFrameMs = previewDiagnosticsEnabled
+    ? performance.now() - drawStartedAt
+    : 0;
+  const bitmapStartedAt = previewDiagnosticsEnabled ? performance.now() : 0;
   const bitmap = await createImageBitmap(canvas);
+  const bitmapCreationMs = previewDiagnosticsEnabled
+    ? performance.now() - bitmapStartedAt
+    : 0;
+  const diagnostics = previewDiagnosticsEnabled
+    ? {
+        sampleLookupDecodeMs,
+        drawFrameMs,
+        bitmapCreationMs,
+        workerTotalMs: performance.now() - workerStartedAt,
+        replacedPendingPreviewCount,
+      }
+    : undefined;
   scope.postMessage(
-    { type: 'preview', bitmap, name: file?.name ?? '', sequence, generationId },
+    {
+      type: 'preview',
+      bitmap,
+      name: file?.name ?? '',
+      sequence,
+      generationId,
+      ...(diagnostics ? { diagnostics } : {}),
+    },
     [bitmap],
   );
 }
@@ -450,7 +499,9 @@ async function exportMp4(treatment: Treatment, operationId: number) {
     await output.finalize();
     if (isCanceled()) return;
     if (!target.buffer) throw new Error('The MP4 encoder returned no output.');
-    scope.postMessage({ type: 'done', operationId, bytes: target.buffer }, [target.buffer]);
+    scope.postMessage({ type: 'done', operationId, bytes: target.buffer }, [
+      target.buffer,
+    ]);
   } catch (error) {
     if (isCanceled()) return;
     if (output.state !== 'finalized' && output.state !== 'canceled') {
@@ -552,12 +603,10 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
         `Could not decode the frame at ${timestamp.toFixed(3)} seconds.`,
       );
     try {
-      const grid = createAsciiFrame(
-        sample,
-        { width, height },
-        treatment,
-        { width: canvas.width, height: canvas.height },
-      );
+      const grid = createAsciiFrame(sample, { width, height }, treatment, {
+        width: canvas.width,
+        height: canvas.height,
+      });
       frames.push({
         timestamp,
         duration: Math.min(step, duration - timestamp),
@@ -700,9 +749,14 @@ scope.onmessage = (event: MessageEvent<Request>) => {
   }
   if (request.type === 'preview') {
     latestPreviewSequence = request.sequence;
+    if (pendingPreview) replacedPendingPreviewCount++;
     pendingPreview = request;
     void processPreviewQueue();
     return;
+  }
+  if (request.type === 'load') {
+    previewDiagnosticsEnabled = request.previewDiagnostics === true;
+    replacedPendingPreviewCount = 0;
   }
   const task =
     request.type === 'load'

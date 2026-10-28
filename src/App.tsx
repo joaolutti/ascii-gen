@@ -23,8 +23,15 @@ type WorkerReply =
       name: string;
       sequence: number;
       generationId: number;
+      diagnostics?: WorkerPreviewDiagnostics;
     }
-  | { type: 'ready'; width: number; height: number; duration: number; frameRate: number }
+  | {
+      type: 'ready';
+      width: number;
+      height: number;
+      duration: number;
+      frameRate: number;
+    }
   | {
       type: 'progress';
       operationId: number;
@@ -44,7 +51,49 @@ type WorkerReply =
   | { type: 'code-bundle-canceled'; operationId: number }
   | { type: 'canceled'; operationId: number }
   | { type: 'disposed' }
-  | { type: 'error'; message: string; operationId?: number; generationId?: number };
+  | {
+      type: 'error';
+      message: string;
+      operationId?: number;
+      generationId?: number;
+    };
+
+type WorkerPreviewDiagnostics = {
+  sampleLookupDecodeMs: number;
+  drawFrameMs: number;
+  bitmapCreationMs: number;
+  workerTotalMs: number;
+  replacedPendingPreviewCount: number;
+};
+
+type PreviewDiagnosticState = {
+  requests: {
+    sequence: number;
+    generationId: number;
+    timestamp: number;
+    sentAt: number;
+  }[];
+  replies: {
+    sequence: number;
+    generationId: number;
+    receivedAt: number;
+    diagnostics?: WorkerPreviewDiagnostics;
+  }[];
+  presentations: {
+    sequence: number;
+    generationId: number;
+    requestToPresentationMs: number | null;
+    replyToPresentationMs: number | null;
+    drawImageMs: number;
+  }[];
+  droppedReplies: { sequence: number; generationId: number; reason: string }[];
+};
+
+function readPreviewDiagnosticState() {
+  return (
+    window as Window & { __asciiPreviewDiagnostics?: PreviewDiagnosticState }
+  ).__asciiPreviewDiagnostics;
+}
 
 const defaultTreatment: Treatment = {
   mode: 'ASCII',
@@ -68,6 +117,9 @@ const defaultPixelatedTreatment: Treatment = {
 };
 
 export default function App() {
+  const previewDiagnosticsEnabled =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).has('previewDiagnostics');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const pendingWorkerRef = useRef<Worker | null>(null);
@@ -115,7 +167,8 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [playback, setPlayback] = useState<PlaybackWorkflow>({ tag: 'paused' });
   const playing = playback.tag === 'playing';
-  const setPlaying = (value: boolean) => setPlayback({ tag: value ? 'playing' : 'paused' });
+  const setPlaying = (value: boolean) =>
+    setPlayback({ tag: value ? 'playing' : 'paused' });
   const [mode, setMode] = useState<RenderMode>('ASCII');
   const [treatments, setTreatments] = useState<Record<RenderMode, Treatment>>({
     ASCII: defaultTreatment,
@@ -183,6 +236,14 @@ export default function App() {
   useEffect(() => {
     if (!duration || !workerRef.current || exporting) return;
     const sequence = ++previewSequenceRef.current;
+    if (previewDiagnosticsEnabled) {
+      readPreviewDiagnosticState()?.requests.push({
+        sequence,
+        timestamp: currentTime,
+        generationId: previewGenerationRef.current,
+        sentAt: performance.now(),
+      });
+    }
     workerRef.current.postMessage({
       type: 'preview',
       timestamp: currentTime,
@@ -190,7 +251,7 @@ export default function App() {
       generationId: previewGenerationRef.current,
       treatment,
     });
-  }, [currentTime, duration, exporting, treatment]);
+  }, [currentTime, duration, exporting, previewDiagnosticsEnabled, treatment]);
 
   const chooseFile = (file?: File) => {
     if (!file || exporting || generatingBundle) return;
@@ -218,7 +279,9 @@ export default function App() {
       setMessage(reason);
     };
     worker.onerror = () =>
-      reject('This file could not be read as a supported video. Choose an H.264 MP4.');
+      reject(
+        'This file could not be read as a supported video. Choose an H.264 MP4.',
+      );
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const reply = event.data;
       if (pendingWorkerRef.current !== worker) {
@@ -252,10 +315,16 @@ export default function App() {
         return '';
       });
       setBundleUrl('');
-      setSource({ tag: 'usable', name: file.name, duration: reply.duration, frameRate: reply.frameRate });
+      setSource({
+        tag: 'usable',
+        name: file.name,
+        duration: reply.duration,
+        frameRate: reply.frameRate,
+      });
       setCapabilities({
         mp4: 'checking',
-        asciiCode: typeof CompressionStream === 'function' ? 'available' : 'unavailable',
+        asciiCode:
+          typeof CompressionStream === 'function' ? 'available' : 'unavailable',
       });
       dispatchGeneration({ type: 'invalidate' });
       setCurrentTime(0);
@@ -272,10 +341,35 @@ export default function App() {
       worker.onmessage = (activeEvent) => {
         const activeReply = activeEvent.data;
         if (activeReply.type === 'preview') {
+          const diagnostics = previewDiagnosticsEnabled
+            ? readPreviewDiagnosticState()
+            : undefined;
+          const receivedAt = performance.now();
+          const request = diagnostics?.requests.find(
+            (item) =>
+              item.sequence === activeReply.sequence &&
+              item.generationId === activeReply.generationId,
+          );
+          diagnostics?.replies.push({
+            sequence: activeReply.sequence,
+            generationId: activeReply.generationId,
+            receivedAt,
+            ...(activeReply.diagnostics
+              ? { diagnostics: activeReply.diagnostics }
+              : {}),
+          });
           if (
             activeReply.generationId !== previewGenerationRef.current ||
             activeReply.sequence <= displayedPreviewSequenceRef.current
           ) {
+            diagnostics?.droppedReplies.push({
+              sequence: activeReply.sequence,
+              generationId: activeReply.generationId,
+              reason:
+                activeReply.generationId !== previewGenerationRef.current
+                  ? 'invalidated-generation'
+                  : 'non-monotonic-sequence',
+            });
             activeReply.bitmap.close();
             return;
           }
@@ -284,7 +378,18 @@ export default function App() {
           if (activeCanvas) {
             activeCanvas.width = activeReply.bitmap.width;
             activeCanvas.height = activeReply.bitmap.height;
+            const drawStartedAt = performance.now();
             activeCanvas.getContext('2d')?.drawImage(activeReply.bitmap, 0, 0);
+            const presentedAt = performance.now();
+            diagnostics?.presentations.push({
+              sequence: activeReply.sequence,
+              generationId: activeReply.generationId,
+              requestToPresentationMs: request
+                ? presentedAt - request.sentAt
+                : null,
+              replyToPresentationMs: presentedAt - receivedAt,
+              drawImageMs: presentedAt - drawStartedAt,
+            });
             activeReply.bitmap.close();
           }
         } else if (activeReply.type === 'ready') {
@@ -296,6 +401,14 @@ export default function App() {
         }
       };
       previewSequenceRef.current = 1;
+      if (previewDiagnosticsEnabled) {
+        readPreviewDiagnosticState()?.requests.push({
+          sequence: previewSequenceRef.current,
+          timestamp: 0,
+          generationId: previewGenerationRef.current,
+          sentAt: performance.now(),
+        });
+      }
       worker.postMessage({
         type: 'preview',
         timestamp: 0,
@@ -304,30 +417,40 @@ export default function App() {
         treatment: treatmentRef.current,
       });
       setMessage('Source video ready. Checking MP4 encoding support…');
-        void (async () => {
-          let supported = false;
-          try {
-            supported = typeof VideoEncoder !== 'undefined' &&
-              (await VideoEncoder.isConfigSupported({
-                codec: 'avc1.42001f', width: reply.width, height: reply.height,
-                bitrate: 1_500_000, framerate: 30,
-              })).supported === true;
-          } catch {
-            supported = false;
-          }
-          if (workerRef.current !== worker) return;
-          setCapabilities((current) => ({
-            ...current,
-            mp4: supported ? 'available' : 'unavailable',
-          }));
-          if (!supported) setMessage('Source video ready. This browser cannot encode H.264 MP4 on this device.');
-          else setMessage('Source video ready.');
-        })();
+      void (async () => {
+        let supported = false;
+        try {
+          supported =
+            typeof VideoEncoder !== 'undefined' &&
+            (
+              await VideoEncoder.isConfigSupported({
+                codec: 'avc1.42001f',
+                width: reply.width,
+                height: reply.height,
+                bitrate: 1_500_000,
+                framerate: 30,
+              })
+            ).supported === true;
+        } catch {
+          supported = false;
+        }
+        if (workerRef.current !== worker) return;
+        setCapabilities((current) => ({
+          ...current,
+          mp4: supported ? 'available' : 'unavailable',
+        }));
+        if (!supported)
+          setMessage(
+            'Source video ready. This browser cannot encode H.264 MP4 on this device.',
+          );
+        else setMessage('Source video ready.');
+      })();
     };
     const testOptions = new URLSearchParams(window.location.search);
     worker.postMessage({
       type: 'load',
       file,
+      previewDiagnostics: previewDiagnosticsEnabled,
       testExportFailure:
         import.meta.env.DEV && testOptions.has('testExportFailure'),
       testExportDelay: import.meta.env.DEV
@@ -345,83 +468,143 @@ export default function App() {
   };
 
   const handleActiveReply = (reply: WorkerReply) => {
-      if (reply.type === 'progress') {
-        if (reply.operationId !== activeExportRef.current) return;
-        dispatchGeneration({ type: 'progress', output: 'mp4', operationId: reply.operationId, value: reply.value });
-      } else if (reply.type === 'done') {
-        if (reply.operationId !== activeExportRef.current) return;
-        activeExportRef.current = undefined;
-        if (generationRef.current.tag === 'canceling') {
-          dispatchGeneration({ type: 'cancelled', output: 'mp4', operationId: reply.operationId });
-          setMessage('Export canceled. Your source video and settings are ready.');
-          return;
-        }
-        const url = URL.createObjectURL(
-          new Blob([reply.bytes], { type: 'video/mp4' }),
-        );
-        dispatchGeneration({ type: 'complete', output: 'mp4', operationId: reply.operationId, artifactUrl: url });
-        setDownloadUrl(url);
-        setMessage('Your silent MP4 download was requested.');
-        requestDownload(url, 'ascii-video.mp4');
-      } else if (reply.type === 'code-bundle-progress') {
-        if (activeCodeBundleRef.current !== reply.operationId) return;
-        dispatchGeneration({ type: 'progress', output: 'ascii-code', operationId: reply.operationId, value: reply.value });
-      } else if (reply.type === 'code-bundle-done') {
-        if (activeCodeBundleRef.current !== reply.operationId) return;
-        activeCodeBundleRef.current = undefined;
-        if (generationRef.current.tag === 'canceling') {
-          dispatchGeneration({ type: 'cancelled', output: 'ascii-code', operationId: reply.operationId });
-          setMessage('Generation canceled. Your source video and settings are ready to try again.');
-          return;
-        }
-        const url = URL.createObjectURL(
-          new Blob([reply.bytes], { type: 'application/zip' }),
-        );
-        dispatchGeneration({ type: 'complete', output: 'ascii-code', operationId: reply.operationId, artifactUrl: url });
-        setBundleUrl(url);
-        setMessage('Your ASCII code bundle is ready. Download requested.');
-        requestDownload(url, 'ascii-code-bundle.zip');
-      } else if (reply.type === 'code-bundle-canceled') {
-        if (activeCodeBundleRef.current !== reply.operationId) return;
-        activeCodeBundleRef.current = undefined;
-        dispatchGeneration({ type: 'cancelled', output: 'ascii-code', operationId: reply.operationId });
-        setMessage(
-          'Generation canceled. Your source video and settings are ready to try again.',
-        );
-      } else if (reply.type === 'canceled') {
-        if (reply.operationId !== activeExportRef.current) return;
-        activeExportRef.current = undefined;
-        dispatchGeneration({ type: 'cancelled', output: 'mp4', operationId: reply.operationId });
+    if (reply.type === 'progress') {
+      if (reply.operationId !== activeExportRef.current) return;
+      dispatchGeneration({
+        type: 'progress',
+        output: 'mp4',
+        operationId: reply.operationId,
+        value: reply.value,
+      });
+    } else if (reply.type === 'done') {
+      if (reply.operationId !== activeExportRef.current) return;
+      activeExportRef.current = undefined;
+      if (generationRef.current.tag === 'canceling') {
+        dispatchGeneration({
+          type: 'cancelled',
+          output: 'mp4',
+          operationId: reply.operationId,
+        });
         setMessage(
           'Export canceled. Your source video and settings are ready.',
         );
-      } else if (reply.type === 'error') {
-        if (reply.operationId === undefined) {
-          if (reply.generationId !== previewGenerationRef.current) return;
-          setMessage(`Preview failed: ${reply.message}`);
-          return;
-        }
-        if (reply.operationId !== activeExportRef.current && reply.operationId !== activeCodeBundleRef.current) return;
-        const failedBundle =
-          reply.operationId !== undefined &&
-          activeCodeBundleRef.current === reply.operationId;
-        if (generationRef.current.tag === 'canceling') {
-          if (failedBundle) activeCodeBundleRef.current = undefined;
-          else activeExportRef.current = undefined;
-          dispatchGeneration({ type: 'cancelled', output: failedBundle ? 'ascii-code' : 'mp4', operationId: reply.operationId });
-          setMessage(failedBundle ? 'Generation canceled. Your source video and settings are ready to try again.' : 'Export canceled. Your source video and settings are ready.');
-          return;
-        }
-        if (failedBundle) activeCodeBundleRef.current = undefined;
-        else if (reply.operationId === activeExportRef.current)
-          activeExportRef.current = undefined;
-        dispatchGeneration({ type: 'failed', output: failedBundle ? 'ascii-code' : 'mp4', operationId: reply.operationId, message: reply.message });
-        setMessage(failedBundle ? `Code generation failed: ${reply.message} You can try again.` : `Export failed: ${reply.message} You can try again.`);
+        return;
       }
+      const url = URL.createObjectURL(
+        new Blob([reply.bytes], { type: 'video/mp4' }),
+      );
+      dispatchGeneration({
+        type: 'complete',
+        output: 'mp4',
+        operationId: reply.operationId,
+        artifactUrl: url,
+      });
+      setDownloadUrl(url);
+      setMessage('Your silent MP4 download was requested.');
+      requestDownload(url, 'ascii-video.mp4');
+    } else if (reply.type === 'code-bundle-progress') {
+      if (activeCodeBundleRef.current !== reply.operationId) return;
+      dispatchGeneration({
+        type: 'progress',
+        output: 'ascii-code',
+        operationId: reply.operationId,
+        value: reply.value,
+      });
+    } else if (reply.type === 'code-bundle-done') {
+      if (activeCodeBundleRef.current !== reply.operationId) return;
+      activeCodeBundleRef.current = undefined;
+      if (generationRef.current.tag === 'canceling') {
+        dispatchGeneration({
+          type: 'cancelled',
+          output: 'ascii-code',
+          operationId: reply.operationId,
+        });
+        setMessage(
+          'Generation canceled. Your source video and settings are ready to try again.',
+        );
+        return;
+      }
+      const url = URL.createObjectURL(
+        new Blob([reply.bytes], { type: 'application/zip' }),
+      );
+      dispatchGeneration({
+        type: 'complete',
+        output: 'ascii-code',
+        operationId: reply.operationId,
+        artifactUrl: url,
+      });
+      setBundleUrl(url);
+      setMessage('Your ASCII code bundle is ready. Download requested.');
+      requestDownload(url, 'ascii-code-bundle.zip');
+    } else if (reply.type === 'code-bundle-canceled') {
+      if (activeCodeBundleRef.current !== reply.operationId) return;
+      activeCodeBundleRef.current = undefined;
+      dispatchGeneration({
+        type: 'cancelled',
+        output: 'ascii-code',
+        operationId: reply.operationId,
+      });
+      setMessage(
+        'Generation canceled. Your source video and settings are ready to try again.',
+      );
+    } else if (reply.type === 'canceled') {
+      if (reply.operationId !== activeExportRef.current) return;
+      activeExportRef.current = undefined;
+      dispatchGeneration({
+        type: 'cancelled',
+        output: 'mp4',
+        operationId: reply.operationId,
+      });
+      setMessage('Export canceled. Your source video and settings are ready.');
+    } else if (reply.type === 'error') {
+      if (reply.operationId === undefined) {
+        if (reply.generationId !== previewGenerationRef.current) return;
+        setMessage(`Preview failed: ${reply.message}`);
+        return;
+      }
+      if (
+        reply.operationId !== activeExportRef.current &&
+        reply.operationId !== activeCodeBundleRef.current
+      )
+        return;
+      const failedBundle =
+        reply.operationId !== undefined &&
+        activeCodeBundleRef.current === reply.operationId;
+      if (generationRef.current.tag === 'canceling') {
+        if (failedBundle) activeCodeBundleRef.current = undefined;
+        else activeExportRef.current = undefined;
+        dispatchGeneration({
+          type: 'cancelled',
+          output: failedBundle ? 'ascii-code' : 'mp4',
+          operationId: reply.operationId,
+        });
+        setMessage(
+          failedBundle
+            ? 'Generation canceled. Your source video and settings are ready to try again.'
+            : 'Export canceled. Your source video and settings are ready.',
+        );
+        return;
+      }
+      if (failedBundle) activeCodeBundleRef.current = undefined;
+      else if (reply.operationId === activeExportRef.current)
+        activeExportRef.current = undefined;
+      dispatchGeneration({
+        type: 'failed',
+        output: failedBundle ? 'ascii-code' : 'mp4',
+        operationId: reply.operationId,
+        message: reply.message,
+      });
+      setMessage(
+        failedBundle
+          ? `Code generation failed: ${reply.message} You can try again.`
+          : `Export failed: ${reply.message} You can try again.`,
+      );
+    }
   };
 
   const exportVideo = () => {
-    if (!canExport || exporting || generatingBundle || !workerRef.current) return;
+    if (!canExport || exporting || generatingBundle || !workerRef.current)
+      return;
     setDownloadUrl((url) => {
       if (url) URL.revokeObjectURL(url);
       return '';
@@ -431,7 +614,11 @@ export default function App() {
     activeExportRef.current = operationId;
     dispatchGeneration({ type: 'start', output: 'mp4', operationId });
     setMessage('Encoding on this device…');
-    workerRef.current.postMessage({ type: 'export', treatment: { ...treatment }, operationId });
+    workerRef.current.postMessage({
+      type: 'export',
+      treatment: { ...treatment },
+      operationId,
+    });
   };
 
   const generateCodeBundle = () => {
@@ -450,14 +637,22 @@ export default function App() {
   const cancelExport = () => {
     const operationId = activeExportRef.current;
     if (operationId === undefined) return;
-    dispatchGeneration({ type: 'cancel-requested', output: 'mp4', operationId });
+    dispatchGeneration({
+      type: 'cancel-requested',
+      output: 'mp4',
+      operationId,
+    });
     workerRef.current?.postMessage({ type: 'cancel-export', operationId });
   };
 
   const cancelCodeBundle = () => {
     const operationId = activeCodeBundleRef.current;
     if (operationId === undefined) return;
-    dispatchGeneration({ type: 'cancel-requested', output: 'ascii-code', operationId });
+    dispatchGeneration({
+      type: 'cancel-requested',
+      output: 'ascii-code',
+      operationId,
+    });
     workerRef.current?.postMessage({ type: 'cancel-code-bundle', operationId });
   };
 
@@ -487,7 +682,9 @@ export default function App() {
             {name ? (
               <canvas
                 ref={canvasRef}
-                aria-label={mode === 'ASCII' ? 'ASCII preview' : 'Pixelated preview'}
+                aria-label={
+                  mode === 'ASCII' ? 'ASCII preview' : 'Pixelated preview'
+                }
               />
             ) : (
               <div className={styles.empty}>
@@ -570,163 +767,163 @@ export default function App() {
           </select>
           {mode === 'ASCII' ? (
             <>
-          <p className={styles.eyebrow}>CHARACTER PRESET</p>
-          <label className={styles.controlLabel} htmlFor="character-preset">
-            Character preset
-          </label>
-          <select
-            id="character-preset"
-            aria-label="Character preset"
-            className={styles.select}
-            value={treatment.preset}
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const preset = event.currentTarget.value as CharacterPreset;
-              setTreatment((current) => ({
-                ...current,
-                preset,
-              }));
-            }}
-          >
-            <option value="Classic">Classic</option>
-            <option value="Minimal">Minimal</option>
-            <option value="Binary">Binary</option>
-          </select>
-          <p className={styles.note}>
-            Classic: varied ASCII ramp (space to $) · Minimal: space, dot, hash
-            · Binary: space, 0, 1
-          </p>
-          <label className={styles.rangeLabel} htmlFor="density">
-            Density <span>{treatment.density} columns</span>
-          </label>
-          <input
-            id="density"
-            aria-label="Density"
-            className={styles.range}
-            type="range"
-            min={24}
-            max={160}
-            step={8}
-            value={treatment.density}
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const density = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                density,
-              }));
-            }}
-          />
-          <p className={styles.note}>24–160 columns · default 88</p>
-          <label className={styles.rangeLabel} htmlFor="brightness">
-            Brightness <span>{treatment.brightness}</span>
-          </label>
-          <input
-            id="brightness"
-            aria-label="Brightness"
-            className={styles.range}
-            type="range"
-            min={-100}
-            max={100}
-            step={1}
-            value={treatment.brightness}
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const brightness = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                brightness,
-              }));
-            }}
-          />
-          <p className={styles.note}>−100 to +100 · default 0</p>
-          <label className={styles.rangeLabel} htmlFor="contrast">
-            Contrast <span>{treatment.contrast}%</span>
-          </label>
-          <input
-            id="contrast"
-            aria-label="Contrast"
-            className={styles.range}
-            type="range"
-            min={0}
-            max={200}
-            step={1}
-            value={treatment.contrast}
-            disabled={controlsDisabled}
-            onChange={(event) => {
-              const contrast = Number(event.currentTarget.value);
-              setTreatment((current) => ({
-                ...current,
-                contrast,
-              }));
-            }}
-          />
-          <p className={styles.note}>0–200% · default 100%</p>
-          <label className={styles.checkboxLabel}>
-            <input
-              aria-label="Invert brightness mapping"
-              type="checkbox"
-              checked={treatment.inverted}
-              disabled={controlsDisabled}
-              onChange={(event) => {
-                const inverted = event.currentTarget.checked;
-                setTreatment((current) => ({
-                  ...current,
-                  inverted,
-                }));
-              }}
-            />
-            Invert brightness mapping
-          </label>
-          <p className={styles.note}>
-            Inversion changes character mapping only; colors stay the same.
-          </p>
-          <p className={styles.eyebrow}>COLORS</p>
-          <label className={styles.colorLabel} htmlFor="foreground-color">
-            Foreground color
-            <input
-              id="foreground-color"
-              aria-label="Foreground color"
-              type="color"
-              value={treatment.foreground}
-              disabled={controlsDisabled}
-              onChange={(event) => {
-                const foreground = event.currentTarget.value;
-                setTreatment((current) => ({ ...current, foreground }));
-              }}
-            />
-          </label>
-          <label className={styles.colorLabel} htmlFor="background-color">
-            Background color
-            <input
-              id="background-color"
-              aria-label="Background color"
-              type="color"
-              value={treatment.background}
-              disabled={controlsDisabled}
-              onChange={(event) => {
-                const background = event.currentTarget.value;
-                setTreatment((current) => ({ ...current, background }));
-              }}
-            />
-          </label>
-          <label className={styles.checkboxLabel}>
-            <input
-              aria-label="Source-color mode"
-              type="checkbox"
-              checked={treatment.sourceColor}
-              disabled={controlsDisabled}
-              onChange={(event) => {
-                const sourceColor = event.currentTarget.checked;
-                setTreatment((current) => ({ ...current, sourceColor }));
-              }}
-            />
-            Source-color mode
-          </label>
-          <p className={styles.note}>
-            Source-color mode colors each character from its source region.
-            Brightness still selects the character.
-          </p>
+              <p className={styles.eyebrow}>CHARACTER PRESET</p>
+              <label className={styles.controlLabel} htmlFor="character-preset">
+                Character preset
+              </label>
+              <select
+                id="character-preset"
+                aria-label="Character preset"
+                className={styles.select}
+                value={treatment.preset}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const preset = event.currentTarget.value as CharacterPreset;
+                  setTreatment((current) => ({
+                    ...current,
+                    preset,
+                  }));
+                }}
+              >
+                <option value="Classic">Classic</option>
+                <option value="Minimal">Minimal</option>
+                <option value="Binary">Binary</option>
+              </select>
+              <p className={styles.note}>
+                Classic: varied ASCII ramp (space to $) · Minimal: space, dot,
+                hash · Binary: space, 0, 1
+              </p>
+              <label className={styles.rangeLabel} htmlFor="density">
+                Density <span>{treatment.density} columns</span>
+              </label>
+              <input
+                id="density"
+                aria-label="Density"
+                className={styles.range}
+                type="range"
+                min={24}
+                max={160}
+                step={8}
+                value={treatment.density}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const density = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    density,
+                  }));
+                }}
+              />
+              <p className={styles.note}>24–160 columns · default 88</p>
+              <label className={styles.rangeLabel} htmlFor="brightness">
+                Brightness <span>{treatment.brightness}</span>
+              </label>
+              <input
+                id="brightness"
+                aria-label="Brightness"
+                className={styles.range}
+                type="range"
+                min={-100}
+                max={100}
+                step={1}
+                value={treatment.brightness}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const brightness = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    brightness,
+                  }));
+                }}
+              />
+              <p className={styles.note}>−100 to +100 · default 0</p>
+              <label className={styles.rangeLabel} htmlFor="contrast">
+                Contrast <span>{treatment.contrast}%</span>
+              </label>
+              <input
+                id="contrast"
+                aria-label="Contrast"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={treatment.contrast}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const contrast = Number(event.currentTarget.value);
+                  setTreatment((current) => ({
+                    ...current,
+                    contrast,
+                  }));
+                }}
+              />
+              <p className={styles.note}>0–200% · default 100%</p>
+              <label className={styles.checkboxLabel}>
+                <input
+                  aria-label="Invert brightness mapping"
+                  type="checkbox"
+                  checked={treatment.inverted}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const inverted = event.currentTarget.checked;
+                    setTreatment((current) => ({
+                      ...current,
+                      inverted,
+                    }));
+                  }}
+                />
+                Invert brightness mapping
+              </label>
+              <p className={styles.note}>
+                Inversion changes character mapping only; colors stay the same.
+              </p>
+              <p className={styles.eyebrow}>COLORS</p>
+              <label className={styles.colorLabel} htmlFor="foreground-color">
+                Foreground color
+                <input
+                  id="foreground-color"
+                  aria-label="Foreground color"
+                  type="color"
+                  value={treatment.foreground}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const foreground = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, foreground }));
+                  }}
+                />
+              </label>
+              <label className={styles.colorLabel} htmlFor="background-color">
+                Background color
+                <input
+                  id="background-color"
+                  aria-label="Background color"
+                  type="color"
+                  value={treatment.background}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const background = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, background }));
+                  }}
+                />
+              </label>
+              <label className={styles.checkboxLabel}>
+                <input
+                  aria-label="Source-color mode"
+                  type="checkbox"
+                  checked={treatment.sourceColor}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const sourceColor = event.currentTarget.checked;
+                    setTreatment((current) => ({ ...current, sourceColor }));
+                  }}
+                />
+                Source-color mode
+              </label>
+              <p className={styles.note}>
+                Source-color mode colors each character from its source region.
+                Brightness still selects the character.
+              </p>
             </>
           ) : (
             <>
@@ -771,25 +968,84 @@ export default function App() {
               <label className={styles.rangeLabel} htmlFor="brightness">
                 Brightness <span>{treatment.brightness}</span>
               </label>
-              <input id="brightness" aria-label="Brightness" className={styles.range} type="range" min={-100} max={100} step={1} value={treatment.brightness} disabled={controlsDisabled} onChange={(event) => { const brightness = Number(event.currentTarget.value); setTreatment((current) => ({ ...current, brightness })); }} />
+              <input
+                id="brightness"
+                aria-label="Brightness"
+                className={styles.range}
+                type="range"
+                min={-100}
+                max={100}
+                step={1}
+                value={treatment.brightness}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const brightness = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, brightness }));
+                }}
+              />
               <label className={styles.rangeLabel} htmlFor="contrast">
                 Contrast <span>{treatment.contrast}%</span>
               </label>
-              <input id="contrast" aria-label="Contrast" className={styles.range} type="range" min={0} max={200} step={1} value={treatment.contrast} disabled={controlsDisabled} onChange={(event) => { const contrast = Number(event.currentTarget.value); setTreatment((current) => ({ ...current, contrast })); }} />
+              <input
+                id="contrast"
+                aria-label="Contrast"
+                className={styles.range}
+                type="range"
+                min={0}
+                max={200}
+                step={1}
+                value={treatment.contrast}
+                disabled={controlsDisabled}
+                onChange={(event) => {
+                  const contrast = Number(event.currentTarget.value);
+                  setTreatment((current) => ({ ...current, contrast }));
+                }}
+              />
               <label className={styles.checkboxLabel}>
-                <input aria-label="Invert brightness mapping" type="checkbox" checked={treatment.inverted} disabled={controlsDisabled} onChange={(event) => { const inverted = event.currentTarget.checked; setTreatment((current) => ({ ...current, inverted })); }} />
+                <input
+                  aria-label="Invert brightness mapping"
+                  type="checkbox"
+                  checked={treatment.inverted}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const inverted = event.currentTarget.checked;
+                    setTreatment((current) => ({ ...current, inverted }));
+                  }}
+                />
                 Invert brightness mapping
               </label>
               <p className={styles.eyebrow}>COLORS</p>
               <label className={styles.colorLabel} htmlFor="foreground-color">
                 Foreground color
-                <input id="foreground-color" aria-label="Foreground color" type="color" value={treatment.foreground} disabled={controlsDisabled} onChange={(event) => { const foreground = event.currentTarget.value; setTreatment((current) => ({ ...current, foreground })); }} />
+                <input
+                  id="foreground-color"
+                  aria-label="Foreground color"
+                  type="color"
+                  value={treatment.foreground}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const foreground = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, foreground }));
+                  }}
+                />
               </label>
               <label className={styles.colorLabel} htmlFor="background-color">
                 Background color
-                <input id="background-color" aria-label="Background color" type="color" value={treatment.background} disabled={controlsDisabled} onChange={(event) => { const background = event.currentTarget.value; setTreatment((current) => ({ ...current, background })); }} />
+                <input
+                  id="background-color"
+                  aria-label="Background color"
+                  type="color"
+                  value={treatment.background}
+                  disabled={controlsDisabled}
+                  onChange={(event) => {
+                    const background = event.currentTarget.value;
+                    setTreatment((current) => ({ ...current, background }));
+                  }}
+                />
               </label>
-              <p className={styles.note}>Brightness determines the size of each square cell.</p>
+              <p className={styles.note}>
+                Brightness determines the size of each square cell.
+              </p>
             </>
           )}
           <button
@@ -810,7 +1066,9 @@ export default function App() {
           <button
             type="button"
             className={styles.export}
-            disabled={!canGenerateBundle || controlsDisabled || mode !== 'ASCII'}
+            disabled={
+              !canGenerateBundle || controlsDisabled || mode !== 'ASCII'
+            }
             onClick={generateCodeBundle}
           >
             Generate ASCII code bundle
