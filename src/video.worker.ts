@@ -31,6 +31,7 @@ type Request =
       testCodeBundleFailure?: boolean;
       testCodeBundleDelay?: number;
       testCodeBundleLimitAfterFrames?: number;
+      testCodeBundleDelta?: boolean;
     }
   | {
       type: 'preview';
@@ -45,6 +46,18 @@ type Request =
   | { type: 'cancel-code-bundle'; operationId: number }
   | { type: 'dispose' };
 const scope = self as DedicatedWorkerGlobalScope;
+type CodeBundleFrame = {
+  timestamp: number;
+  duration: number;
+  rows: string[];
+  colors?: string[];
+};
+type DeltaCodeBundleFrame = {
+  t: number;
+  d: number;
+  rows: Array<[number, string]>;
+  colors?: Array<[number, string]>;
+};
 const defaultTreatment: Treatment = {
   mode: 'ASCII',
   density: 88,
@@ -94,18 +107,13 @@ let testExportFailure = false;
 let testCodeBundleDelay = 0;
 let testCodeBundleFailure = false;
 let testCodeBundleLimitAfterFrames = 0;
+let testCodeBundleDelta = false;
 let didTestCodeBundleLimitFailure = false;
 let didTestCodeBundleFail = false;
 let activeCodeBundleId: number | undefined;
 let canceledCodeBundleId: number | undefined;
 let activeCodeBundleFrames:
-  | Array<{
-      timestamp: number;
-      duration: number;
-      rows: string[];
-      colors?: string[];
-    }>
-  | undefined;
+  Array<CodeBundleFrame | DeltaCodeBundleFrame> | undefined;
 
 const oversizedCodeBundleMessage =
   'This ASCII bundle exceeds the safe export limits. Lower Density in the editor and generate it again; duration, frame rate, and color fidelity are never reduced automatically.';
@@ -560,6 +568,7 @@ async function exportMp4(treatment: Treatment, operationId: number) {
 }
 
 async function exportCodeBundle(treatment: Treatment, operationId: number) {
+  const deltaBenchmarkMode = import.meta.env.DEV && testCodeBundleDelta;
   if (activeCodeBundleId !== undefined)
     throw new Error('Another ASCII bundle generation is already active.');
   activeCodeBundleId = operationId;
@@ -607,13 +616,11 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
   )
     throw new Error(oversizedCodeBundleMessage);
   const firstTimestamp = await track.getFirstTimestamp();
-  const frames: Array<{
-    timestamp: number;
-    duration: number;
-    rows: string[];
-    colors?: string[];
-  }> = [];
-  activeCodeBundleFrames = frames;
+  const frames: CodeBundleFrame[] = [];
+  const deltaFrames: DeltaCodeBundleFrame[] = [];
+  activeCodeBundleFrames = deltaBenchmarkMode ? deltaFrames : frames;
+  let previousRows: string[] | undefined;
+  let previousColors: string[] | undefined;
   let estimatedJsonBytesUsed = 2_000 + frameCount * 200;
   let generatedCells = 0;
   let estimatedDecodedBytesUsed = 0;
@@ -647,12 +654,33 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
         width: canvas.width,
         height: canvas.height,
       });
-      frames.push({
-        timestamp,
-        duration: Math.min(step, duration - timestamp),
-        rows: grid.characters,
-        ...(grid.colors ? { colors: grid.colors } : {}),
-      });
+      if (deltaBenchmarkMode) {
+        deltaFrames.push({
+          t: timestamp,
+          d: Math.min(step, duration - timestamp),
+          rows: grid.characters.flatMap((row, y) =>
+            !previousRows || row !== previousRows[y] ? [[y, row]] : [],
+          ),
+          ...(grid.colors
+            ? {
+                colors: grid.colors.flatMap((row, y) =>
+                  !previousColors || row !== previousColors[y]
+                    ? [[y, row]]
+                    : [],
+                ),
+              }
+            : {}),
+        });
+        previousRows = grid.characters;
+        previousColors = grid.colors;
+      } else {
+        frames.push({
+          timestamp,
+          duration: Math.min(step, duration - timestamp),
+          rows: grid.characters,
+          ...(grid.colors ? { colors: grid.colors } : {}),
+        });
+      }
       generatedCells += frameCells;
       estimatedJsonBytesUsed += frameJsonEstimate;
       estimatedDecodedBytesUsed += frameDecodedEstimate;
@@ -701,7 +729,7 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     foreground: treatment.foreground,
     background: treatment.background,
     duration,
-    frames,
+    frames: deltaBenchmarkMode ? deltaFrames : frames,
   };
   const dataJson = JSON.stringify(data);
   if (
@@ -711,23 +739,50 @@ async function exportCodeBundle(treatment: Treatment, operationId: number) {
     throw new Error(oversizedCodeBundleMessage);
   const readme =
     'ASCII video bundle\n\nOpen index.html directly in a desktop browser. It works offline, starts paused, and includes labeled Play/Pause and Loop controls.\n\nFiles: index.html is the runnable example; player.js is the reusable public player; data.json contains versioned row-major character frames. The player has no editor, source-video, build-tool, runtime-library, or external-font dependency.\n\nSeparate application setup: copy player.js and data.json into your app, load player.js with a script tag, fetch or import data.json, find a container element, then call AsciiVideoPlayer.mount({container, data}). mount creates its own frame and labeled controls, so the bundled example markup is not required. The returned instance provides play(), pause(), seek(seconds), setLoop(enabled), getCurrentTime(), element, and dispose(). seek accepts seconds from 0 through the recorded duration; at the duration boundary it displays the final frame. setLoop controls whether playback wraps at the recorded duration. options.loop defaults to true.\n\nSizing: the frame scales down to fit the container width while preserving source aspect ratio and cell proportions. It never enlarges beyond its generated dimensions. Resizing changes presentation size; data rows, columns, and logical cell geometry remain unchanged.\n\nAutoplay is off by default. To opt in, pass autoplay: true; the player suppresses this unsolicited playback when prefers-reduced-motion is reduce. The user can still start deliberate playback. dispose() stops its animation frame, disconnects its resize observer, removes its event listener, and removes the mounted player element. Call it when removing the player.\n\nData compatibility: version 1 supports fixed-color frames (rows only, using foreground) and source-color frames (rows plus six-digit RGB colors per cell). The background color is independent in both modes. The output uses the browser monospace system font, so glyph shape and spacing can differ across systems.\n\nLimits: at most 28,000 cells in one frame, 7,200,000 cells total, 450 frames, 5,000,000 bytes of data.json, a 32,000,000-byte decoded-data estimate, and a 12,000,000-byte ZIP. Oversized work is rejected with lower-Density guidance; the generator never changes Density, cadence, duration, or color fidelity automatically.\n\nCapability separation: code generation requires supported H.264 decoding and raw DEFLATE ZIP support. It does not require H.264 MP4 encoding. The source video is not included in this archive.\n';
-  const indexHtml = createExampleHtml(data);
+  const deltaBenchmark = deltaBenchmarkMode
+    ? await import('./deltaBenchmark')
+    : undefined;
+  const indexHtml = deltaBenchmark
+    ? deltaBenchmark.createDeltaBenchmarkHtml(
+        data as Parameters<typeof deltaBenchmark.createDeltaBenchmarkHtml>[0],
+      )
+    : createExampleHtml(data);
   // All generated content is ASCII. String length is therefore a safe
   // preflight upper bound on UTF-8 bytes before ZIP buffers are allocated.
-  const estimatedBundleBytes =
-    indexHtml.length +
-    dataJson.length +
-    playerJavaScript.length +
-    readme.length +
-    512;
+  const estimatedBundleBytes = deltaBenchmark
+    ? indexHtml.length +
+      dataJson.length +
+      deltaBenchmark.deltaBenchmarkPlayerJavaScript.length +
+      deltaBenchmark.deltaBenchmarkReadme.length +
+      512
+    : indexHtml.length +
+      dataJson.length +
+      playerJavaScript.length +
+      readme.length +
+      512;
   if (estimatedBundleBytes > codeBundleLimits.maxBundleBytes)
     throw new Error(oversizedCodeBundleMessage);
-  const zip = await createZip([
-    { name: 'index.html', content: indexHtml },
-    { name: 'player.js', content: playerJavaScript },
-    { name: 'data.json', content: dataJson },
-    { name: 'README.txt', content: readme },
-  ]);
+  const zip = await createZip(
+    deltaBenchmark
+      ? [
+          { name: 'index.html', content: indexHtml },
+          {
+            name: 'player.js',
+            content: deltaBenchmark.deltaBenchmarkPlayerJavaScript,
+          },
+          { name: 'data.json', content: dataJson },
+          {
+            name: 'README.txt',
+            content: deltaBenchmark.deltaBenchmarkReadme,
+          },
+        ]
+      : [
+          { name: 'index.html', content: indexHtml },
+          { name: 'player.js', content: playerJavaScript },
+          { name: 'data.json', content: dataJson },
+          { name: 'README.txt', content: readme },
+        ],
+  );
   if (zip.size > codeBundleLimits.maxBundleBytes)
     throw new Error(oversizedCodeBundleMessage);
   if (isCanceled()) {
@@ -774,6 +829,8 @@ scope.onmessage = (event: MessageEvent<Request>) => {
     testCodeBundleLimitAfterFrames = import.meta.env.DEV
       ? Math.max(0, Math.floor(request.testCodeBundleLimitAfterFrames ?? 0))
       : 0;
+    testCodeBundleDelta =
+      import.meta.env.DEV && request.testCodeBundleDelta === true;
   }
   if (request.type === 'cancel-export') {
     if (activeExportId !== request.operationId) return;

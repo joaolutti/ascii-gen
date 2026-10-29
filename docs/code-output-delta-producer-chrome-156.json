@@ -1,0 +1,357 @@
+{
+  "date": "2026-10-29T01:34:54.328Z",
+  "browserName": "chrome-156",
+  "browserVersion": "156.0.8078.73",
+  "executable": "/tmp/ascii-gen-chrome/chrome-linux64/chrome",
+  "os": "linux",
+  "arch": "x64",
+  "cpu": "Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz",
+  "logicalCpus": 8,
+  "totalMemoryBytes": 16398417920,
+  "processRssSamplingIntervalMs": 100,
+  "generatorMode": "development-only direct row-delta generation during source-frame sampling",
+  "matrix": [
+    {
+      "name": "landscape-short-low",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 24,
+      "sourceColor": false,
+      "archiveBytes": 8757,
+      "dataJsonBytes": 6319,
+      "dataJsonDeflateBytes": 1642,
+      "deltaChangedCharacterCells": 3600,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 18960,
+      "generationMs": 214,
+      "sampledGenerationProcessPeakRssBytes": 1111461888,
+      "generationProcessRssSampleCount": 2,
+      "offlineExampleInitialDrawCalls": 168,
+      "consumerInitialDrawCalls": 168,
+      "consumerStartupMs": 74,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.40000000596046,
+        "p95GapMs": 83.79999999701977,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 0.20000000298023224,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1050144768,
+      "consumerProcessRssSampleCount": 11
+    },
+    {
+      "name": "landscape-short-default",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 88,
+      "sourceColor": false,
+      "archiveBytes": 26338,
+      "dataJsonBytes": 58830,
+      "dataJsonDeflateBytes": 10300,
+      "deltaChangedCharacterCells": 50424,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 131200,
+      "generationMs": 238,
+      "sampledGenerationProcessPeakRssBytes": 1107828736,
+      "generationProcessRssSampleCount": 3,
+      "offlineExampleInitialDrawCalls": 2376,
+      "consumerInitialDrawCalls": 2376,
+      "consumerStartupMs": 85,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 83.79999999701977,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 16.200000002980232,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1063043072,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "landscape-short-high",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 160,
+      "sourceColor": false,
+      "archiveBytes": 60703,
+      "dataJsonBytes": 189439,
+      "dataJsonDeflateBytes": 27499,
+      "deltaChangedCharacterCells": 172000,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 402400,
+      "generationMs": 265,
+      "sampledGenerationProcessPeakRssBytes": 1131577344,
+      "generationProcessRssSampleCount": 3,
+      "offlineExampleInitialDrawCalls": 8000,
+      "consumerInitialDrawCalls": 8000,
+      "consumerStartupMs": 88,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 88.20000000298023,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 21.600000008940697,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1045819392,
+      "consumerProcessRssSampleCount": 13
+    },
+    {
+      "name": "portrait-high",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 146372
+      },
+      "density": 160,
+      "sourceColor": false,
+      "archiveBytes": 303284,
+      "dataJsonBytes": 1130982,
+      "dataJsonDeflateBytes": 148739,
+      "deltaChangedCharacterCells": 1016160,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 2303008,
+      "generationMs": 747,
+      "sampledGenerationProcessPeakRssBytes": 1172103168,
+      "generationProcessRssSampleCount": 7,
+      "offlineExampleInitialDrawCalls": 24960,
+      "consumerInitialDrawCalls": 24960,
+      "consumerStartupMs": 156,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 82.5,
+        "p95GapMs": 86.29999999701977,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 48.20000000298023,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10600000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1053691904,
+      "consumerProcessRssSampleCount": 18
+    },
+    {
+      "name": "minimum-aspect-high",
+      "source": {
+        "width": 360,
+        "height": 640,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 437718
+      },
+      "density": 160,
+      "sourceColor": false,
+      "archiveBytes": 224376,
+      "dataJsonBytes": 1006743,
+      "dataJsonDeflateBytes": 109262,
+      "deltaChangedCharacterCells": 920800,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 2093216,
+      "generationMs": 1008,
+      "sampledGenerationProcessPeakRssBytes": 1237237760,
+      "generationProcessRssSampleCount": 9,
+      "offlineExampleInitialDrawCalls": 24960,
+      "consumerInitialDrawCalls": 24960,
+      "consumerStartupMs": 169,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83,
+        "p95GapMs": 86.20000000298023,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 50.20000000298023,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1047863296,
+      "consumerProcessRssSampleCount": 18
+    },
+    {
+      "name": "source-color-default",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 142678
+      },
+      "density": 88,
+      "sourceColor": true,
+      "archiveBytes": 259268,
+      "dataJsonBytes": 771693,
+      "dataJsonDeflateBytes": 126740,
+      "deltaChangedCharacterCells": 103400,
+      "deltaChangedColorCells": 106744,
+      "deltaDecodedDataEstimateBytes": 543376,
+      "generationMs": 717,
+      "sampledGenerationProcessPeakRssBytes": 1143255040,
+      "generationProcessRssSampleCount": 6,
+      "offlineExampleInitialDrawCalls": 2376,
+      "consumerInitialDrawCalls": 2376,
+      "consumerStartupMs": 117,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.20000000298023,
+        "p95GapMs": 87.40000000596046,
+        "displayedFrameCount": 14
+      },
+      "seekP95Ms": 22.200000002980232,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1043607552,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "fractional-cadence",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "24000/1001",
+        "nb_frames": "96",
+        "duration": 4.004,
+        "sourceBytes": 222727
+      },
+      "density": 88,
+      "sourceColor": false,
+      "archiveBytes": 88844,
+      "dataJsonBytes": 237883,
+      "dataJsonDeflateBytes": 41490,
+      "deltaChangedCharacterCells": 201872,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 507600,
+      "generationMs": 1287,
+      "sampledGenerationProcessPeakRssBytes": 1178124288,
+      "generationProcessRssSampleCount": 11,
+      "offlineExampleInitialDrawCalls": 2376,
+      "consumerInitialDrawCalls": 2376,
+      "consumerStartupMs": 94,
+      "cadence": {
+        "framesAdvanced": 28,
+        "medianGapMs": 49.400000005960464,
+        "p95GapMs": 50.79999999701977,
+        "displayedFrameCount": 28
+      },
+      "seekP95Ms": 20.299999997019768,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1053614080,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "capped-cadence",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "60/1",
+        "nb_frames": "120",
+        "duration": 2,
+        "sourceBytes": 200288
+      },
+      "density": 88,
+      "sourceColor": false,
+      "archiveBytes": 55734,
+      "dataJsonBytes": 144680,
+      "dataJsonDeflateBytes": 25030,
+      "deltaChangedCharacterCells": 123640,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 313472,
+      "generationMs": 819,
+      "sampledGenerationProcessPeakRssBytes": 1149775872,
+      "generationProcessRssSampleCount": 7,
+      "offlineExampleInitialDrawCalls": 2376,
+      "consumerInitialDrawCalls": 2376,
+      "consumerStartupMs": 90,
+      "cadence": {
+        "framesAdvanced": 35,
+        "medianGapMs": 33.30000001192093,
+        "p95GapMs": 34.3999999910593,
+        "displayedFrameCount": 35
+      },
+      "seekP95Ms": 18.100000008940697,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1045114880,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "near-15-second",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "30000/1001",
+        "nb_frames": "447",
+        "duration": 14.9149,
+        "sourceBytes": 994415
+      },
+      "density": 88,
+      "sourceColor": false,
+      "archiveBytes": 385676,
+      "dataJsonBytes": 1096397,
+      "dataJsonDeflateBytes": 190024,
+      "deltaChangedCharacterCells": 928576,
+      "deltaChangedColorCells": 0,
+      "deltaDecodedDataEstimateBytes": 2315120,
+      "generationMs": 8784,
+      "sampledGenerationProcessPeakRssBytes": 1423986688,
+      "generationProcessRssSampleCount": 71,
+      "offlineExampleInitialDrawCalls": 2376,
+      "consumerInitialDrawCalls": 2376,
+      "consumerStartupMs": 129,
+      "cadence": {
+        "framesAdvanced": 35,
+        "medianGapMs": 33.29999999701977,
+        "p95GapMs": 34.5,
+        "displayedFrameCount": 35
+      },
+      "seekP95Ms": 17,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledConsumerProcessPeakRssBytes": 1044647936,
+      "consumerProcessRssSampleCount": 12
+    }
+  ]
+}

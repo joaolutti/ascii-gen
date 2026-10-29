@@ -531,6 +531,8 @@ export default function App() {
       testCodeBundleLimitAfterFrames: import.meta.env.DEV
         ? Number(testOptions.get('testCodeBundleLimitAfterFrames') ?? 0)
         : 0,
+      testCodeBundleDelta:
+        import.meta.env.DEV && testOptions.has('testCodeBundleDelta'),
     });
   };
 
