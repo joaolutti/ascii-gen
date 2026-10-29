@@ -56,6 +56,20 @@
       "nativeVideoSeekP50Ms": 50.2,
       "nativeVideoSeekP95Ms": 86.4
     },
+    "edge-156-no-preference-one-second-gop": {
+      "version": "156.0.4314.50",
+      "gopFrames": 60,
+      "gopSeconds": 1,
+      "seekP50Ms": 90.9,
+      "seekP95Ms": 123.9,
+      "workerSampleDecodeP50Ms": 63.1,
+      "workerSampleDecodeP95Ms": 92.2,
+      "workerRenderP95Ms": 13.7,
+      "workerBitmapP95Ms": 4.9,
+      "workerTotalP95Ms": 104.6,
+      "nativeVideoSeekP50Ms": 60.4,
+      "nativeVideoSeekP95Ms": 103.1
+    },
     "edge-156-no-preference-long-gop": {
       "version": "156.0.4314.50",
       "gopFrames": 250,
@@ -75,5 +89,5 @@
     "prefer-hardware": "Unsupported configuration error in headless Chrome 156 and Edge 156; no preview was produced.",
     "prefer-software": "Supported in Chrome; reduced the 20-sample seek p95 but remained above the 150 ms target."
   },
-  "interpretation": "The long-GOP seek misses are dominated by random-access sample decoding. Rendering and bitmap creation are under 20 ms combined at p95. The same source with a one-second GOP meets the Chrome target, while the long-GOP source misses in both browsers. Native video-element seeks also miss for the long-GOP source."
+  "interpretation": "The long-GOP seek misses are dominated by random-access sample decoding. Rendering and bitmap creation are under 20 ms combined at p95. The same source with a one-second GOP meets the 150 ms target in Chrome and Edge, while the long-GOP source misses in both browsers. Native video-element seeks also miss for the long-GOP source."
 }
