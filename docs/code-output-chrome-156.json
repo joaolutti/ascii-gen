@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-29T01:11:35.032Z",
+  "date": "2026-10-29T01:43:19.445Z",
   "browserName": "chrome-156",
   "browserVersion": "156.0.8078.73",
   "executable": "/tmp/ascii-gen-chrome/chrome-linux64/chrome",
@@ -12,6 +12,7 @@
     "width": 1280,
     "height": 720
   },
+  "playbackWindowMs": 5000,
   "processRssSamplingIntervalMs": 100,
   "matrix": [
     {
@@ -40,37 +41,37 @@
       "fullDecodedFrameDataEstimateBytes": 19584,
       "deltaDecodedFrameDataEstimateBytes": 18960,
       "archiveBytes": 10176,
-      "generationMs": 234,
-      "consumerStartupMs": 71,
+      "generationMs": 221,
+      "consumerStartupMs": 72,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.29999999701977,
-        "p95GapMs": 83.8999999910593,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.3999999910593,
+        "p95GapMs": 83.80000001192093,
+        "displayedFrameCount": 59
       },
       "seekP95Ms": 0.20000000298023224,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 71,
+      "deltaConsumerStartupMs": 79,
       "deltaCadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.20000000298023,
-        "p95GapMs": 83.6000000089407,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.3999999910593,
+        "p95GapMs": 83.69999998807907,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 0.29999999701976776,
+      "deltaSeekP95Ms": 0.30000001192092896,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1109905408,
+      "sampledGenerationProcessPeakRssBytes": 1092632576,
       "generationProcessRssSampleCount": 2,
-      "sampledConsumerProcessPeakRssBytes": 1032241152,
-      "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1025126400,
-      "deltaConsumerProcessRssSampleCount": 13
+      "sampledConsumerProcessPeakRssBytes": 1018232832,
+      "consumerProcessRssSampleCount": 46,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1017888768,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "landscape-short-default",
@@ -98,37 +99,37 @@
       "fullDecodedFrameDataEstimateBytes": 140928,
       "deltaDecodedFrameDataEstimateBytes": 131200,
       "archiveBytes": 27127,
-      "generationMs": 229,
-      "consumerStartupMs": 73,
+      "generationMs": 219,
+      "consumerStartupMs": 66,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.3999999910593,
-        "p95GapMs": 83.70000000298023,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 83.90000000596046,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 16.100000008940697,
+      "seekP95Ms": 16.099999994039536,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 76,
+      "deltaConsumerStartupMs": 81,
       "deltaCadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.3999999910593,
-        "p95GapMs": 83.79999999701977,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.30000001192093,
+        "p95GapMs": 84.29999999701977,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 16.799999997019768,
+      "deltaSeekP95Ms": 16.299999997019768,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1103998976,
+      "sampledGenerationProcessPeakRssBytes": 1114140672,
       "generationProcessRssSampleCount": 2,
-      "sampledConsumerProcessPeakRssBytes": 1017102336,
-      "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1024778240,
-      "deltaConsumerProcessRssSampleCount": 13
+      "sampledConsumerProcessPeakRssBytes": 1031143424,
+      "consumerProcessRssSampleCount": 47,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1016696832,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "landscape-short-high",
@@ -156,37 +157,37 @@
       "fullDecodedFrameDataEstimateBytes": 428544,
       "deltaDecodedFrameDataEstimateBytes": 402400,
       "archiveBytes": 60573,
-      "generationMs": 262,
-      "consumerStartupMs": 97,
+      "generationMs": 256,
+      "consumerStartupMs": 94,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.40000000596046,
-        "p95GapMs": 85.09999999403954,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.5,
+        "p95GapMs": 84.90000000596046,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 22.099999994039536,
+      "seekP95Ms": 21.299999997019768,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 94,
+      "deltaConsumerStartupMs": 78,
       "deltaCadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.5,
-        "p95GapMs": 86.3999999910593,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 85.1000000089407,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 22.900000005960464,
+      "deltaSeekP95Ms": 20.19999998807907,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1136021504,
+      "sampledGenerationProcessPeakRssBytes": 1132679168,
       "generationProcessRssSampleCount": 3,
-      "sampledConsumerProcessPeakRssBytes": 1025138688,
-      "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1023094784,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledConsumerProcessPeakRssBytes": 1020338176,
+      "consumerProcessRssSampleCount": 47,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1034371072,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "portrait-high",
@@ -214,37 +215,37 @@
       "fullDecodedFrameDataEstimateBytes": 2648064,
       "deltaDecodedFrameDataEstimateBytes": 2303008,
       "archiveBytes": 285829,
-      "generationMs": 752,
-      "consumerStartupMs": 182,
+      "generationMs": 772,
+      "consumerStartupMs": 156,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.80000001192093,
-        "p95GapMs": 93.5,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.3999999910593,
+        "p95GapMs": 88.29999999701977,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 49.400000005960464,
+      "seekP95Ms": 48.3999999910593,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10600000
       },
-      "deltaConsumerStartupMs": 153,
+      "deltaConsumerStartupMs": 168,
       "deltaCadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.40000000596046,
-        "p95GapMs": 84.3999999910593,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 101.09999999403954,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 49.70000000298023,
+      "deltaSeekP95Ms": 48.70000000298023,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10600000
       },
-      "sampledGenerationProcessPeakRssBytes": 1212071936,
+      "sampledGenerationProcessPeakRssBytes": 1206317056,
       "generationProcessRssSampleCount": 6,
-      "sampledConsumerProcessPeakRssBytes": 1043120128,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1039695872,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledConsumerProcessPeakRssBytes": 1049206784,
+      "consumerProcessRssSampleCount": 47,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1049784320,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "minimum-aspect-high",
@@ -272,37 +273,37 @@
       "fullDecodedFrameDataEstimateBytes": 2648064,
       "deltaDecodedFrameDataEstimateBytes": 2093216,
       "archiveBytes": 213572,
-      "generationMs": 1322,
-      "consumerStartupMs": 299,
+      "generationMs": 1171,
+      "consumerStartupMs": 192,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 81.5,
-        "p95GapMs": 99.5,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.5,
+        "p95GapMs": 86.59999999403954,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 55.8999999910593,
+      "seekP95Ms": 52.5,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10600000
       },
-      "deltaConsumerStartupMs": 167,
+      "deltaConsumerStartupMs": 170,
       "deltaCadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83,
-        "p95GapMs": 85.6000000089407,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.09999999403954,
+        "p95GapMs": 87.09999999403954,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 52.70000000298023,
+      "deltaSeekP95Ms": 51.19999998807907,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
-        "totalJSHeapSize": 10000000
+        "totalJSHeapSize": 10600000
       },
-      "sampledGenerationProcessPeakRssBytes": 1270943744,
+      "sampledGenerationProcessPeakRssBytes": 1262415872,
       "generationProcessRssSampleCount": 10,
-      "sampledConsumerProcessPeakRssBytes": 1062002688,
-      "consumerProcessRssSampleCount": 16,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1041694720,
-      "deltaConsumerProcessRssSampleCount": 15
+      "sampledConsumerProcessPeakRssBytes": 1042616320,
+      "consumerProcessRssSampleCount": 48,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1057337344,
+      "deltaConsumerProcessRssSampleCount": 47
     },
     {
       "name": "source-color-default",
@@ -330,37 +331,37 @@
       "fullDecodedFrameDataEstimateBytes": 1650432,
       "deltaDecodedFrameDataEstimateBytes": 543376,
       "archiveBytes": 259135,
-      "generationMs": 672,
+      "generationMs": 643,
       "consumerStartupMs": 119,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.09999999403954,
-        "p95GapMs": 84.5,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.40000000596046,
+        "p95GapMs": 85.30000001192093,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 25.100000008940697,
+      "seekP95Ms": 18.799999997019768,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 120,
+      "deltaConsumerStartupMs": 106,
       "deltaCadence": {
-        "framesAdvanced": 14,
+        "framesAdvanced": 59,
         "medianGapMs": 83.29999999701977,
-        "p95GapMs": 83.8999999910593,
-        "displayedFrameCount": 14
+        "p95GapMs": 85.1000000089407,
+        "displayedFrameCount": 59
       },
-      "deltaSeekP95Ms": 21.799999997019768,
+      "deltaSeekP95Ms": 19.19999998807907,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1154265088,
+      "sampledGenerationProcessPeakRssBytes": 1152610304,
       "generationProcessRssSampleCount": 5,
-      "sampledConsumerProcessPeakRssBytes": 1032126464,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1038573568,
-      "deltaConsumerProcessRssSampleCount": 13
+      "sampledConsumerProcessPeakRssBytes": 1057984512,
+      "consumerProcessRssSampleCount": 46,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1032302592,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "fractional-cadence",
@@ -388,37 +389,37 @@
       "fullDecodedFrameDataEstimateBytes": 563712,
       "deltaDecodedFrameDataEstimateBytes": 507600,
       "archiveBytes": 88585,
-      "generationMs": 1298,
-      "consumerStartupMs": 119,
+      "generationMs": 1074,
+      "consumerStartupMs": 67,
       "cadence": {
-        "framesAdvanced": 28,
-        "medianGapMs": 34.69999998807907,
-        "p95GapMs": 50.30000001192093,
-        "displayedFrameCount": 28
+        "framesAdvanced": 119,
+        "medianGapMs": 49.3999999910593,
+        "p95GapMs": 50.29999999701977,
+        "displayedFrameCount": 119
       },
-      "seekP95Ms": 20.700000002980232,
+      "seekP95Ms": 16.69999998807907,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 80,
+      "deltaConsumerStartupMs": 71,
       "deltaCadence": {
-        "framesAdvanced": 28,
-        "medianGapMs": 48.900000005960464,
-        "p95GapMs": 51.099999994039536,
-        "displayedFrameCount": 28
+        "framesAdvanced": 119,
+        "medianGapMs": 49,
+        "p95GapMs": 50.400000005960464,
+        "displayedFrameCount": 119
       },
-      "deltaSeekP95Ms": 18.599999994039536,
+      "deltaSeekP95Ms": 16,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1178501120,
-      "generationProcessRssSampleCount": 11,
-      "sampledConsumerProcessPeakRssBytes": 1018408960,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1005375488,
-      "deltaConsumerProcessRssSampleCount": 13
+      "sampledGenerationProcessPeakRssBytes": 1161895936,
+      "generationProcessRssSampleCount": 9,
+      "sampledConsumerProcessPeakRssBytes": 1022738432,
+      "consumerProcessRssSampleCount": 45,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1027522560,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "capped-cadence",
@@ -446,37 +447,37 @@
       "fullDecodedFrameDataEstimateBytes": 352320,
       "deltaDecodedFrameDataEstimateBytes": 313472,
       "archiveBytes": 56358,
-      "generationMs": 853,
-      "consumerStartupMs": 111,
+      "generationMs": 712,
+      "consumerStartupMs": 70,
       "cadence": {
-        "framesAdvanced": 35,
+        "framesAdvanced": 150,
         "medianGapMs": 33.3999999910593,
-        "p95GapMs": 34.1000000089407,
-        "displayedFrameCount": 35
+        "p95GapMs": 34.20000000298023,
+        "displayedFrameCount": 150
       },
-      "seekP95Ms": 18.700000002980232,
+      "seekP95Ms": 16.900000005960464,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 93,
+      "deltaConsumerStartupMs": 77,
       "deltaCadence": {
-        "framesAdvanced": 35,
-        "medianGapMs": 33.29999999701977,
-        "p95GapMs": 33.79999999701977,
-        "displayedFrameCount": 35
+        "framesAdvanced": 149,
+        "medianGapMs": 33.30000001192093,
+        "p95GapMs": 34,
+        "displayedFrameCount": 149
       },
-      "deltaSeekP95Ms": 18.099999994039536,
+      "deltaSeekP95Ms": 16.900000005960464,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1120940032,
-      "generationProcessRssSampleCount": 7,
-      "sampledConsumerProcessPeakRssBytes": 1019809792,
-      "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1027366912,
-      "deltaConsumerProcessRssSampleCount": 13
+      "sampledGenerationProcessPeakRssBytes": 1137209344,
+      "generationProcessRssSampleCount": 6,
+      "sampledConsumerProcessPeakRssBytes": 1024487424,
+      "consumerProcessRssSampleCount": 46,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1027325952,
+      "deltaConsumerProcessRssSampleCount": 46
     },
     {
       "name": "near-15-second",
@@ -504,37 +505,37 @@
       "fullDecodedFrameDataEstimateBytes": 2624784,
       "deltaDecodedFrameDataEstimateBytes": 2315120,
       "archiveBytes": 383252,
-      "generationMs": 8792,
-      "consumerStartupMs": 134,
+      "generationMs": 9439,
+      "consumerStartupMs": 132,
       "cadence": {
-        "framesAdvanced": 36,
-        "medianGapMs": 33.20000000298023,
-        "p95GapMs": 34.6000000089407,
-        "displayedFrameCount": 36
+        "framesAdvanced": 149,
+        "medianGapMs": 33.3999999910593,
+        "p95GapMs": 34,
+        "displayedFrameCount": 149
       },
-      "seekP95Ms": 17.200000002980232,
+      "seekP95Ms": 18.200000002980232,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 121,
+      "deltaConsumerStartupMs": 122,
       "deltaCadence": {
-        "framesAdvanced": 36,
+        "framesAdvanced": 149,
         "medianGapMs": 33.29999999701977,
-        "p95GapMs": 34.20000000298023,
-        "displayedFrameCount": 36
+        "p95GapMs": 33.900000005960464,
+        "displayedFrameCount": 149
       },
-      "deltaSeekP95Ms": 17.900000005960464,
+      "deltaSeekP95Ms": 17.5,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1372876800,
-      "generationProcessRssSampleCount": 71,
-      "sampledConsumerProcessPeakRssBytes": 1032617984,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1030426624,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledGenerationProcessPeakRssBytes": 1368760320,
+      "generationProcessRssSampleCount": 75,
+      "sampledConsumerProcessPeakRssBytes": 1037590528,
+      "consumerProcessRssSampleCount": 47,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1031536640,
+      "deltaConsumerProcessRssSampleCount": 47
     }
   ]
 }

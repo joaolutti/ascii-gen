@@ -3,7 +3,9 @@ import { chromium } from '@playwright/test';
 import {
   cases,
   fixtureFor,
+  playbackWindowMs,
   processRss,
+  rssSamplingIntervalMs,
   setDensity,
 } from './code-bundle-benchmark.mjs';
 import { execFileSync } from 'node:child_process';
@@ -77,7 +79,9 @@ try {
       while (sampling) {
         rss.peakBytes = Math.max(rss.peakBytes, await processRss(executable));
         rss.samples++;
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) =>
+          setTimeout(resolve, rssSamplingIntervalMs),
+        );
       }
     })();
     const start = performance.now();
@@ -186,11 +190,13 @@ try {
           await processRss(executable),
         );
         consumerRss.samples++;
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) =>
+          setTimeout(resolve, rssSamplingIntervalMs),
+        );
       }
     })();
     await consumer.getByRole('button', { name: 'Play' }).click();
-    await consumer.waitForTimeout(1200);
+    await consumer.waitForTimeout(playbackWindowMs);
     const cadence = await consumer.evaluate(
       ({ initialDrawCalls, frameCells }) => {
         const drawCount = window.__asciiDrawCalls - initialDrawCalls;
@@ -285,7 +291,8 @@ try {
       cpu,
       logicalCpus: cpus().length,
       totalMemoryBytes: totalmem(),
-      processRssSamplingIntervalMs: 100,
+      playbackWindowMs,
+      processRssSamplingIntervalMs: rssSamplingIntervalMs,
       generatorMode:
         'development-only direct row-delta generation during source-frame sampling',
       matrix,

@@ -1,6 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
+export const playbackWindowMs = 5_000;
+export const rssSamplingIntervalMs = 100;
+
 export const cases = [
   {
     name: 'landscape-short-low',

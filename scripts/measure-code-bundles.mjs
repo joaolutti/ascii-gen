@@ -3,7 +3,9 @@ import { chromium } from '@playwright/test';
 import {
   cases,
   fixtureFor,
+  playbackWindowMs,
   processRss,
+  rssSamplingIntervalMs,
   setDensity,
 } from './code-bundle-benchmark.mjs';
 import { execFileSync } from 'node:child_process';
@@ -68,7 +70,7 @@ const sampler = (async () => {
   while (sampling) {
     rss.peakBytes = Math.max(rss.peakBytes, await processRss(executable));
     rss.samples++;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, rssSamplingIntervalMs));
   }
 })();
 
@@ -176,7 +178,7 @@ try {
       window.__asciiFrameTimes.length = 0;
     });
     await consumer.getByRole('button', { name: 'Play' }).click();
-    await consumer.waitForTimeout(1200);
+    await consumer.waitForTimeout(playbackWindowMs);
     const cadence = await consumer.evaluate(
       ({ initialDraws, cells }) => {
         const drawCount = window.__asciiDrawCalls - initialDraws;
@@ -269,7 +271,7 @@ try {
       window.__asciiFrameTimes.length = 0;
     });
     await deltaConsumer.getByRole('button', { name: 'Play' }).click();
-    await deltaConsumer.waitForTimeout(1200);
+    await deltaConsumer.waitForTimeout(playbackWindowMs);
     const deltaCadence = await deltaConsumer.evaluate(
       ({ initialDraws, cells }) => {
         const drawCount = window.__asciiDrawCalls - initialDraws;
@@ -397,7 +399,8 @@ try {
           logicalCpus: cpus().length,
           totalMemoryBytes: totalmem(),
           viewport: { width: 1280, height: 720 },
-          processRssSamplingIntervalMs: 100,
+          playbackWindowMs,
+          processRssSamplingIntervalMs: rssSamplingIntervalMs,
           matrix: results,
         },
         null,

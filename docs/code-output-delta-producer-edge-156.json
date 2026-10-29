@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-29T01:35:48.345Z",
+  "date": "2026-10-29T01:48:19.582Z",
   "browserName": "edge-156",
   "browserVersion": "156.0.4314.50",
   "executable": "/tmp/ascii-gen-edge/opt/microsoft/msedge/msedge",
@@ -8,6 +8,7 @@
   "cpu": "Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz",
   "logicalCpus": 8,
   "totalMemoryBytes": 16398417920,
+  "playbackWindowMs": 5000,
   "processRssSamplingIntervalMs": 100,
   "generatorMode": "development-only direct row-delta generation during source-frame sampling",
   "matrix": [
@@ -29,25 +30,25 @@
       "deltaChangedCharacterCells": 3600,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 18960,
-      "generationMs": 247,
-      "sampledGenerationProcessPeakRssBytes": 1019994112,
+      "generationMs": 245,
+      "sampledGenerationProcessPeakRssBytes": 1018118144,
       "generationProcessRssSampleCount": 3,
       "offlineExampleInitialDrawCalls": 168,
       "consumerInitialDrawCalls": 168,
-      "consumerStartupMs": 58,
+      "consumerStartupMs": 61,
       "cadence": {
-        "framesAdvanced": 14,
+        "framesAdvanced": 59,
         "medianGapMs": 83.29999999701977,
-        "p95GapMs": 84,
-        "displayedFrameCount": 14
+        "p95GapMs": 83.6000000089407,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 0.29999999701976776,
+      "seekP95Ms": 0.30000001192092896,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 926560256,
-      "consumerProcessRssSampleCount": 11
+      "sampledConsumerProcessPeakRssBytes": 932986880,
+      "consumerProcessRssSampleCount": 44
     },
     {
       "name": "landscape-short-default",
@@ -67,25 +68,25 @@
       "deltaChangedCharacterCells": 50424,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 131200,
-      "generationMs": 275,
-      "sampledGenerationProcessPeakRssBytes": 1009414144,
+      "generationMs": 268,
+      "sampledGenerationProcessPeakRssBytes": 1013841920,
       "generationProcessRssSampleCount": 3,
       "offlineExampleInitialDrawCalls": 2376,
       "consumerInitialDrawCalls": 2376,
-      "consumerStartupMs": 86,
+      "consumerStartupMs": 66,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.30000001192093,
-        "p95GapMs": 84.19999998807907,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 84.29999999701977,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 18.700000002980232,
+      "seekP95Ms": 18.69999998807907,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 944734208,
-      "consumerProcessRssSampleCount": 12
+      "sampledConsumerProcessPeakRssBytes": 928362496,
+      "consumerProcessRssSampleCount": 45
     },
     {
       "name": "landscape-short-high",
@@ -105,25 +106,25 @@
       "deltaChangedCharacterCells": 172000,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 402400,
-      "generationMs": 310,
-      "sampledGenerationProcessPeakRssBytes": 1013153792,
+      "generationMs": 287,
+      "sampledGenerationProcessPeakRssBytes": 1018732544,
       "generationProcessRssSampleCount": 3,
       "offlineExampleInitialDrawCalls": 8000,
       "consumerInitialDrawCalls": 8000,
-      "consumerStartupMs": 96,
+      "consumerStartupMs": 81,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.19999998807907,
-        "p95GapMs": 85.59999999403954,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.20000000298023,
+        "p95GapMs": 85.09999999403954,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 25,
+      "seekP95Ms": 23.400000005960464,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 943468544,
-      "consumerProcessRssSampleCount": 14
+      "sampledConsumerProcessPeakRssBytes": 924127232,
+      "consumerProcessRssSampleCount": 46
     },
     {
       "name": "portrait-high",
@@ -143,25 +144,25 @@
       "deltaChangedCharacterCells": 1016160,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 2303008,
-      "generationMs": 935,
-      "sampledGenerationProcessPeakRssBytes": 1060503552,
-      "generationProcessRssSampleCount": 8,
+      "generationMs": 805,
+      "sampledGenerationProcessPeakRssBytes": 1052954624,
+      "generationProcessRssSampleCount": 7,
       "offlineExampleInitialDrawCalls": 24960,
       "consumerInitialDrawCalls": 24960,
-      "consumerStartupMs": 168,
+      "consumerStartupMs": 157,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 82.90000000596046,
-        "p95GapMs": 91.09999999403954,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 86.20000000298023,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 66,
+      "seekP95Ms": 61.400000005960464,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
-        "totalJSHeapSize": 10000000
+        "totalJSHeapSize": 11200000
       },
-      "sampledConsumerProcessPeakRssBytes": 951824384,
-      "consumerProcessRssSampleCount": 20
+      "sampledConsumerProcessPeakRssBytes": 931024896,
+      "consumerProcessRssSampleCount": 52
     },
     {
       "name": "minimum-aspect-high",
@@ -181,25 +182,25 @@
       "deltaChangedCharacterCells": 920800,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 2093216,
-      "generationMs": 1257,
-      "sampledGenerationProcessPeakRssBytes": 1130668032,
+      "generationMs": 1235,
+      "sampledGenerationProcessPeakRssBytes": 1129836544,
       "generationProcessRssSampleCount": 11,
       "offlineExampleInitialDrawCalls": 24960,
       "consumerInitialDrawCalls": 24960,
-      "consumerStartupMs": 167,
+      "consumerStartupMs": 158,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 82.70000000298023,
-        "p95GapMs": 85.5,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 89.70000000298023,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 59.400000005960464,
+      "seekP95Ms": 57.20000000298023,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 944553984,
-      "consumerProcessRssSampleCount": 19
+      "sampledConsumerProcessPeakRssBytes": 960212992,
+      "consumerProcessRssSampleCount": 51
     },
     {
       "name": "source-color-default",
@@ -219,25 +220,25 @@
       "deltaChangedCharacterCells": 103400,
       "deltaChangedColorCells": 106744,
       "deltaDecodedDataEstimateBytes": 543376,
-      "generationMs": 696,
-      "sampledGenerationProcessPeakRssBytes": 1021329408,
+      "generationMs": 707,
+      "sampledGenerationProcessPeakRssBytes": 1036693504,
       "generationProcessRssSampleCount": 6,
       "offlineExampleInitialDrawCalls": 2376,
       "consumerInitialDrawCalls": 2376,
-      "consumerStartupMs": 109,
+      "consumerStartupMs": 103,
       "cadence": {
-        "framesAdvanced": 14,
-        "medianGapMs": 83.29999999701977,
-        "p95GapMs": 85.70000000298023,
-        "displayedFrameCount": 14
+        "framesAdvanced": 59,
+        "medianGapMs": 83.3999999910593,
+        "p95GapMs": 84.29999999701977,
+        "displayedFrameCount": 59
       },
-      "seekP95Ms": 25.700000002980232,
+      "seekP95Ms": 21.099999994039536,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 953831424,
-      "consumerProcessRssSampleCount": 12
+      "sampledConsumerProcessPeakRssBytes": 946630656,
+      "consumerProcessRssSampleCount": 45
     },
     {
       "name": "fractional-cadence",
@@ -257,25 +258,25 @@
       "deltaChangedCharacterCells": 201872,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 507600,
-      "generationMs": 1432,
-      "sampledGenerationProcessPeakRssBytes": 1050230784,
-      "generationProcessRssSampleCount": 12,
+      "generationMs": 1126,
+      "sampledGenerationProcessPeakRssBytes": 1053036544,
+      "generationProcessRssSampleCount": 10,
       "offlineExampleInitialDrawCalls": 2376,
       "consumerInitialDrawCalls": 2376,
       "consumerStartupMs": 85,
       "cadence": {
-        "framesAdvanced": 28,
-        "medianGapMs": 49.099999994039536,
-        "p95GapMs": 50.8999999910593,
-        "displayedFrameCount": 28
+        "framesAdvanced": 119,
+        "medianGapMs": 49,
+        "p95GapMs": 50.79999999701977,
+        "displayedFrameCount": 119
       },
-      "seekP95Ms": 19.099999994039536,
+      "seekP95Ms": 19.599999994039536,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 930897920,
-      "consumerProcessRssSampleCount": 12
+      "sampledConsumerProcessPeakRssBytes": 936271872,
+      "consumerProcessRssSampleCount": 45
     },
     {
       "name": "capped-cadence",
@@ -295,25 +296,25 @@
       "deltaChangedCharacterCells": 123640,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 313472,
-      "generationMs": 894,
-      "sampledGenerationProcessPeakRssBytes": 1040834560,
-      "generationProcessRssSampleCount": 8,
+      "generationMs": 771,
+      "sampledGenerationProcessPeakRssBytes": 1036005376,
+      "generationProcessRssSampleCount": 7,
       "offlineExampleInitialDrawCalls": 2376,
       "consumerInitialDrawCalls": 2376,
-      "consumerStartupMs": 86,
+      "consumerStartupMs": 81,
       "cadence": {
-        "framesAdvanced": 35,
-        "medianGapMs": 33.29999999701977,
-        "p95GapMs": 34.30000001192093,
-        "displayedFrameCount": 35
+        "framesAdvanced": 149,
+        "medianGapMs": 33.30000001192093,
+        "p95GapMs": 35.79999999701977,
+        "displayedFrameCount": 149
       },
-      "seekP95Ms": 20,
+      "seekP95Ms": 19.200000002980232,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 940544000,
-      "consumerProcessRssSampleCount": 12
+      "sampledConsumerProcessPeakRssBytes": 933728256,
+      "consumerProcessRssSampleCount": 43
     },
     {
       "name": "near-15-second",
@@ -333,25 +334,25 @@
       "deltaChangedCharacterCells": 928576,
       "deltaChangedColorCells": 0,
       "deltaDecodedDataEstimateBytes": 2315120,
-      "generationMs": 9095,
-      "sampledGenerationProcessPeakRssBytes": 1329782784,
-      "generationProcessRssSampleCount": 74,
+      "generationMs": 9183,
+      "sampledGenerationProcessPeakRssBytes": 1328582656,
+      "generationProcessRssSampleCount": 75,
       "offlineExampleInitialDrawCalls": 2376,
       "consumerInitialDrawCalls": 2376,
-      "consumerStartupMs": 108,
+      "consumerStartupMs": 114,
       "cadence": {
-        "framesAdvanced": 35,
-        "medianGapMs": 33.30000001192093,
-        "p95GapMs": 34.099999994039536,
-        "displayedFrameCount": 35
+        "framesAdvanced": 149,
+        "medianGapMs": 33.29999999701977,
+        "p95GapMs": 34.30000001192093,
+        "displayedFrameCount": 149
       },
-      "seekP95Ms": 18.900000005960464,
+      "seekP95Ms": 20.900000005960464,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledConsumerProcessPeakRssBytes": 945934336,
-      "consumerProcessRssSampleCount": 12
+      "sampledConsumerProcessPeakRssBytes": 929419264,
+      "consumerProcessRssSampleCount": 45
     }
   ]
 }
