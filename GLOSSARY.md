@@ -17,7 +17,7 @@ A video whose frames represent the source imagery as a regular grid of square ce
 _Avoid_: pixel art, mosaic mode
 
 **ASCII code output**:
-A versioned bundle of actual character-frame data and a reusable standalone player, generated locally from a source video.
+A versioned bundle of actual character-frame data and a reusable standalone player, generated locally from a source video. Version 1 stores complete independently seekable grids in `data.json`, optionally with per-cell source colors; an offline example and the public player API ship beside the data.
 _Avoid_: code video, text animation
 
 **Density**:

@@ -1,0 +1,351 @@
+{
+  "date": "2026-10-29T00:45:11.071Z",
+  "browserName": "edge-156",
+  "browserVersion": "156.0.4314.50",
+  "executable": "/tmp/ascii-gen-edge/opt/microsoft/msedge/msedge",
+  "os": "linux",
+  "arch": "x64",
+  "cpu": "Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz",
+  "logicalCpus": 8,
+  "totalMemoryBytes": 16398417920,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "processRssSamplingIntervalMs": 100,
+  "matrix": [
+    {
+      "name": "landscape-short-low",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 24,
+      "sourceColor": false,
+      "grid": "24x7",
+      "frames": 24,
+      "totalCells": 4032,
+      "dataJsonBytes": 6583,
+      "dataDeflateBytes": 1598,
+      "deltaJsonBytes": 6097,
+      "deltaDeflateBytes": 1505,
+      "archiveBytes": 10176,
+      "generationMs": 248,
+      "consumerStartupMs": 74,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 83.70000000298023,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 984059904,
+      "generationProcessRssSampleCount": 2,
+      "sampledConsumerProcessPeakRssBytes": 1266823168,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "landscape-short-default",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 88,
+      "sourceColor": false,
+      "grid": "88x27",
+      "frames": 24,
+      "totalCells": 57024,
+      "dataJsonBytes": 63551,
+      "dataDeflateBytes": 9937,
+      "deltaJsonBytes": 58609,
+      "deltaDeflateBytes": 10156,
+      "archiveBytes": 27127,
+      "generationMs": 312,
+      "consumerStartupMs": 97,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.20000000298023,
+        "p95GapMs": 83.80000001192093,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1072070656,
+      "generationProcessRssSampleCount": 3,
+      "sampledConsumerProcessPeakRssBytes": 1275985920,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "landscape-short-high",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "24",
+        "duration": 2,
+        "sourceBytes": 68979
+      },
+      "density": 160,
+      "sourceColor": false,
+      "grid": "160x50",
+      "frames": 24,
+      "totalCells": 192000,
+      "dataJsonBytes": 205249,
+      "dataDeflateBytes": 26678,
+      "deltaJsonBytes": 189262,
+      "deltaDeflateBytes": 27369,
+      "archiveBytes": 60573,
+      "generationMs": 328,
+      "consumerStartupMs": 125,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.59999999403954,
+        "p95GapMs": 84.5,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1006718976,
+      "generationProcessRssSampleCount": 3,
+      "sampledConsumerProcessPeakRssBytes": 1297960960,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "portrait-high",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 146372
+      },
+      "density": 160,
+      "sourceColor": false,
+      "grid": "160x156",
+      "frames": 48,
+      "totalCells": 1198080,
+      "dataJsonBytes": 1292820,
+      "dataDeflateBytes": 139277,
+      "deltaJsonBytes": 1130772,
+      "deltaDeflateBytes": 148588,
+      "archiveBytes": 285829,
+      "generationMs": 1006,
+      "consumerStartupMs": 240,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.5,
+        "p95GapMs": 88.59999999403954,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10600000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1073487872,
+      "generationProcessRssSampleCount": 8,
+      "sampledConsumerProcessPeakRssBytes": 1372770304,
+      "consumerProcessRssSampleCount": 14
+    },
+    {
+      "name": "minimum-aspect-high",
+      "source": {
+        "width": 360,
+        "height": 640,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 437718
+      },
+      "density": 160,
+      "sourceColor": false,
+      "grid": "160x156",
+      "frames": 48,
+      "totalCells": 1198080,
+      "dataJsonBytes": 1268490,
+      "dataDeflateBytes": 103089,
+      "deltaJsonBytes": 1006534,
+      "deltaDeflateBytes": 109113,
+      "archiveBytes": 213572,
+      "generationMs": 1323,
+      "consumerStartupMs": 225,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 81.70000000298023,
+        "p95GapMs": 87.70000000298023,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10600000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1137795072,
+      "generationProcessRssSampleCount": 11,
+      "sampledConsumerProcessPeakRssBytes": 1435181056,
+      "consumerProcessRssSampleCount": 13
+    },
+    {
+      "name": "source-color-default",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "12/1",
+        "nb_frames": "48",
+        "duration": 4,
+        "sourceBytes": 142678
+      },
+      "density": 88,
+      "sourceColor": true,
+      "grid": "88x27",
+      "frames": 48,
+      "totalCells": 114048,
+      "dataJsonBytes": 816939,
+      "dataDeflateBytes": 125894,
+      "deltaJsonBytes": 771472,
+      "deltaDeflateBytes": 126600,
+      "archiveBytes": 259135,
+      "generationMs": 710,
+      "consumerStartupMs": 147,
+      "cadence": {
+        "framesAdvanced": 14,
+        "medianGapMs": 83.1000000089407,
+        "p95GapMs": 85.5,
+        "displayedFrameCount": 14
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1032462336,
+      "generationProcessRssSampleCount": 6,
+      "sampledConsumerProcessPeakRssBytes": 1331855360,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "fractional-cadence",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "24000/1001",
+        "nb_frames": "96",
+        "duration": 4.004,
+        "sourceBytes": 222727
+      },
+      "density": 88,
+      "sourceColor": false,
+      "grid": "88x27",
+      "frames": 96,
+      "totalCells": 228096,
+      "dataJsonBytes": 257345,
+      "dataDeflateBytes": 40602,
+      "deltaJsonBytes": 237658,
+      "deltaDeflateBytes": 41343,
+      "archiveBytes": 88585,
+      "generationMs": 1413,
+      "consumerStartupMs": 126,
+      "cadence": {
+        "framesAdvanced": 28,
+        "medianGapMs": 48.8999999910593,
+        "p95GapMs": 50.1000000089407,
+        "displayedFrameCount": 28
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1052868608,
+      "generationProcessRssSampleCount": 12,
+      "sampledConsumerProcessPeakRssBytes": 1341726720,
+      "consumerProcessRssSampleCount": 12
+    },
+    {
+      "name": "capped-cadence",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "60/1",
+        "nb_frames": "120",
+        "duration": 2,
+        "sourceBytes": 200288
+      },
+      "density": 88,
+      "sourceColor": false,
+      "grid": "88x27",
+      "frames": 60,
+      "totalCells": 142560,
+      "dataJsonBytes": 159335,
+      "dataDeflateBytes": 24591,
+      "deltaJsonBytes": 144459,
+      "deltaDeflateBytes": 24879,
+      "archiveBytes": 56358,
+      "generationMs": 943,
+      "consumerStartupMs": 108,
+      "cadence": {
+        "framesAdvanced": 36,
+        "medianGapMs": 33.29999999701977,
+        "p95GapMs": 34,
+        "displayedFrameCount": 36
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1013477376,
+      "generationProcessRssSampleCount": 7,
+      "sampledConsumerProcessPeakRssBytes": 1311490048,
+      "consumerProcessRssSampleCount": 13
+    },
+    {
+      "name": "near-15-second",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "avg_frame_rate": "30000/1001",
+        "nb_frames": "447",
+        "duration": 14.9149,
+        "sourceBytes": 994415
+      },
+      "density": 88,
+      "sourceColor": false,
+      "grid": "88x27",
+      "frames": 447,
+      "totalCells": 1062072,
+      "dataJsonBytes": 1200520,
+      "dataDeflateBytes": 188060,
+      "deltaJsonBytes": 1096170,
+      "deltaDeflateBytes": 189872,
+      "archiveBytes": 383252,
+      "generationMs": 9762,
+      "consumerStartupMs": 155,
+      "cadence": {
+        "framesAdvanced": 35,
+        "medianGapMs": 33.30000001192093,
+        "p95GapMs": 34.20000000298023,
+        "displayedFrameCount": 35
+      },
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "sampledGenerationProcessPeakRssBytes": 1262063616,
+      "generationProcessRssSampleCount": 77,
+      "sampledConsumerProcessPeakRssBytes": 1592610816,
+      "consumerProcessRssSampleCount": 13
+    }
+  ]
+}
