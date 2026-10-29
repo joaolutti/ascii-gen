@@ -216,8 +216,7 @@ export default function App() {
       ...current,
       [mode]: updatedTreatment,
     }));
-    if (playing)
-      publishPreview(playbackTimeRef.current, updatedTreatment);
+    if (playing) publishPreview(playbackTimeRef.current, updatedTreatment);
   };
 
   useEffect(() => {
@@ -499,10 +498,26 @@ export default function App() {
       })();
     };
     const testOptions = new URLSearchParams(window.location.search);
+    const testHardwareAcceleration = testOptions.get(
+      'testPreviewHardwareAcceleration',
+    );
+    const previewDecoderOptions = import.meta.env.DEV
+      ? {
+          ...(testHardwareAcceleration === 'prefer-hardware' ||
+          testHardwareAcceleration === 'prefer-software' ||
+          testHardwareAcceleration === 'no-preference'
+            ? { hardwareAcceleration: testHardwareAcceleration }
+            : {}),
+          ...(testOptions.has('testPreviewOptimizeForLatency')
+            ? { optimizeForLatency: true }
+            : {}),
+        }
+      : undefined;
     worker.postMessage({
       type: 'load',
       file,
       previewDiagnostics: previewDiagnosticsEnabled,
+      previewDecoderOptions,
       testExportFailure:
         import.meta.env.DEV && testOptions.has('testExportFailure'),
       testExportDelay: import.meta.env.DEV
@@ -777,8 +792,7 @@ export default function App() {
                   previewGenerationRef.current++;
                   playbackTimeRef.current = time;
                   setCurrentTime(time);
-                  if (playing)
-                    publishPreview(time, treatmentRef.current);
+                  if (playing) publishPreview(time, treatmentRef.current);
                 }}
               />
               <span className={styles.playbackTime}>

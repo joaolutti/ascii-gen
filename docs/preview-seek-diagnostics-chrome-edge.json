@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-28",
+  "machine": {
+    "os": "Linux x86_64",
+    "cpu": "Intel Core i5-10210U @ 1.60 GHz",
+    "logicalCpus": 8,
+    "memoryBytes": 16398417920
+  },
+  "method": {
+    "scenario": "1920x1080, 60 fps, 14.9 seconds, 88-column ASCII",
+    "fixtures": "FFmpeg testsrc2, libx264 ultrafast CRF 28, yuv420p",
+    "interactionSamples": 20,
+    "playbackWindows": "three 11-second windows before interaction sampling",
+    "seekLatency": "range input change to preview canvas presentation",
+    "workerStages": "sample/decode, ASCII frame render, and ImageBitmap creation",
+    "nativeVideo": "hidden HTMLVideoElement seek to requestVideoFrameCallback"
+  },
+  "browsers": {
+    "chrome-156-no-preference-long-gop": {
+      "version": "156.0.8078.73",
+      "gopFrames": 250,
+      "gopSeconds": 4.1667,
+      "seekP50Ms": 191.2,
+      "seekP95Ms": 388.0,
+      "workerSampleDecodeP50Ms": 166.9,
+      "workerSampleDecodeP95Ms": 353.0,
+      "workerRenderP95Ms": 12.1,
+      "workerBitmapP95Ms": 4.4,
+      "workerTotalP95Ms": 367.0,
+      "nativeVideoSeekP50Ms": 150.9,
+      "nativeVideoSeekP95Ms": 310.5
+    },
+    "chrome-156-prefer-software-long-gop": {
+      "version": "156.0.8078.73",
+      "gopFrames": 250,
+      "gopSeconds": 4.1667,
+      "seekP50Ms": 142.5,
+      "seekP95Ms": 308.5,
+      "workerSampleDecodeP50Ms": 117.4,
+      "workerSampleDecodeP95Ms": 277.8,
+      "workerRenderP95Ms": 8.0,
+      "workerBitmapP95Ms": 2.9,
+      "nativeVideoSeekP50Ms": 105.8,
+      "nativeVideoSeekP95Ms": 229.2
+    },
+    "chrome-156-no-preference-one-second-gop": {
+      "version": "156.0.8078.73",
+      "gopFrames": 60,
+      "gopSeconds": 1,
+      "seekP50Ms": 88.1,
+      "seekP95Ms": 124.5,
+      "workerSampleDecodeP50Ms": 54.5,
+      "workerSampleDecodeP95Ms": 97.5,
+      "workerRenderP95Ms": 13.4,
+      "workerBitmapP95Ms": 5.3,
+      "nativeVideoSeekP50Ms": 50.2,
+      "nativeVideoSeekP95Ms": 86.4
+    },
+    "edge-156-no-preference-long-gop": {
+      "version": "156.0.4314.50",
+      "gopFrames": 250,
+      "gopSeconds": 4.1667,
+      "seekP50Ms": 187.3,
+      "seekP95Ms": 388.4,
+      "workerSampleDecodeP50Ms": 159.2,
+      "workerSampleDecodeP95Ms": 358.4,
+      "workerRenderP95Ms": 13.9,
+      "workerBitmapP95Ms": 5.2,
+      "workerTotalP95Ms": 371.8,
+      "nativeVideoSeekP50Ms": 149.2,
+      "nativeVideoSeekP95Ms": 309.3
+    }
+  },
+  "decoderConfiguration": {
+    "prefer-hardware": "Unsupported configuration error in headless Chrome 156 and Edge 156; no preview was produced.",
+    "prefer-software": "Supported in Chrome; reduced the 20-sample seek p95 but remained above the 150 ms target."
+  },
+  "interpretation": "The long-GOP seek misses are dominated by random-access sample decoding. Rendering and bitmap creation are under 20 ms combined at p95. The same source with a one-second GOP meets the Chrome target, while the long-GOP source misses in both browsers. Native video-element seeks also miss for the long-GOP source."
+}

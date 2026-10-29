@@ -22,6 +22,7 @@ mkdirSync(fixtureDir, { recursive: true });
 
 function createFixture(name: string, source: string) {
   const output = join(fixtureDir, `${name}.mp4`);
+  const keyframeInterval = process.env.PREVIEW_KEYFRAME_INTERVAL_FRAMES;
   execFileSync('ffmpeg', [
     '-hide_banner',
     '-loglevel',
@@ -40,6 +41,16 @@ function createFixture(name: string, source: string) {
     '28',
     '-pix_fmt',
     'yuv420p',
+    ...(keyframeInterval
+      ? [
+          '-g',
+          keyframeInterval,
+          '-keyint_min',
+          keyframeInterval,
+          '-sc_threshold',
+          '0',
+        ]
+      : []),
     output,
   ]);
   return output;
@@ -168,7 +179,16 @@ async function prepareScenario(
   scenario: Scenario,
   withDiagnostics: boolean,
 ) {
-  await page.goto(withDiagnostics ? '/?previewDiagnostics=1' : '/');
+  const search = new URLSearchParams();
+  if (withDiagnostics) search.set('previewDiagnostics', '1');
+  if (process.env.PREVIEW_HARDWARE_ACCELERATION)
+    search.set(
+      'testPreviewHardwareAcceleration',
+      process.env.PREVIEW_HARDWARE_ACCELERATION,
+    );
+  if (process.env.PREVIEW_OPTIMIZE_FOR_LATENCY === '1')
+    search.set('testPreviewOptimizeForLatency', '1');
+  await page.goto(search.size ? `/?${search}` : '/');
   await watchPreviewImageDraws(page);
   await page.getByLabel('Choose source video').setInputFiles(scenario.input);
   await expect(page.getByLabel('Play preview')).toBeVisible({
@@ -486,10 +506,25 @@ async function measureRangeChangeLatency(
     .evaluate(async (input, nextValue) => {
       const windowWithDraws = window as Window & {
         __previewDrawTimes?: number[];
+        __asciiPreviewDiagnostics?: {
+          presentations: { sequence: number; generationId: number }[];
+          replies: {
+            sequence: number;
+            generationId: number;
+            diagnostics?: {
+              sampleLookupDecodeMs: number;
+              drawFrameMs: number;
+              bitmapCreationMs: number;
+              workerTotalMs: number;
+            };
+          }[];
+        };
       };
       const draws = windowWithDraws.__previewDrawTimes;
       if (!draws) throw new Error('Preview instrumentation was not installed');
       const firstDraw = draws.length;
+      const firstPresentation =
+        windowWithDraws.__asciiPreviewDiagnostics?.presentations.length ?? 0;
       const startedAt = performance.now();
       const setter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -499,11 +534,35 @@ async function measureRangeChangeLatency(
       setter.call(input, String(nextValue));
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-      return new Promise<number>((resolve, reject) => {
+      return new Promise<{
+        latencyMs: number;
+        workerDiagnostics?: {
+          sampleLookupDecodeMs: number;
+          drawFrameMs: number;
+          bitmapCreationMs: number;
+          workerTotalMs: number;
+        };
+      }>((resolve, reject) => {
         const deadline = startedAt + 2_000;
         const checkForPresentation = (now: number) => {
           if (draws.length > firstDraw) {
-            resolve(now - startedAt);
+            const diagnostics = windowWithDraws.__asciiPreviewDiagnostics;
+            const presentation = diagnostics?.presentations
+              .slice(firstPresentation)
+              .at(-1);
+            const reply = presentation
+              ? diagnostics?.replies.find(
+                  (item) =>
+                    item.sequence === presentation.sequence &&
+                    item.generationId === presentation.generationId,
+                )
+              : undefined;
+            resolve({
+              latencyMs: now - startedAt,
+              ...(reply?.diagnostics
+                ? { workerDiagnostics: reply.diagnostics }
+                : {}),
+            });
             return;
           }
           if (now >= deadline) {
@@ -541,22 +600,110 @@ async function measureInteractionLatencies(page: Page, scenario: Scenario) {
   await page.waitForTimeout(150);
   const seek = page.getByLabel('Preview position');
   const duration = Number(await seek.getAttribute('max'));
-  const seekLatencies: number[] = [];
+  const seekMeasurements: Awaited<
+    ReturnType<typeof measureRangeChangeLatency>
+  >[] = [];
   const appearanceLatencies: number[] = [];
   for (let index = 0; index < 20; index++) {
     const position = duration * ((((index * 7) % 20) + 1) / 21);
-    seekLatencies.push(
+    seekMeasurements.push(
       await measureRangeChangeLatency(page, 'Preview position', position),
     );
   }
   for (let index = 0; index < 20; index++) {
     appearanceLatencies.push(
-      await measureRangeChangeLatency(page, 'Brightness', -100 + index * 10),
+      (await measureRangeChangeLatency(page, 'Brightness', -100 + index * 10))
+        .latencyMs,
     );
   }
+  const summarizeSeekStage = (
+    key:
+      | 'sampleLookupDecodeMs'
+      | 'drawFrameMs'
+      | 'bitmapCreationMs'
+      | 'workerTotalMs',
+  ) =>
+    summarizeLatencies(
+      seekMeasurements.flatMap((sample) =>
+        sample.workerDiagnostics ? [sample.workerDiagnostics[key]] : [],
+      ),
+    );
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.id = 'native-video-seek-source';
+    input.type = 'file';
+    input.hidden = true;
+    document.body.append(input);
+  });
+  await page.locator('#native-video-seek-source').setInputFiles(scenario.input);
+  const nativeVideoSeekLatency = await page.evaluate(
+    async (durationSeconds) => {
+      const input = document.querySelector<HTMLInputElement>(
+        '#native-video-seek-source',
+      );
+      const file = input?.files?.[0];
+      if (!file) throw new Error('The selected source file was unavailable');
+      const video = document.createElement('video');
+      video.muted = true;
+      video.preload = 'auto';
+      const objectUrl = URL.createObjectURL(file);
+      video.src = objectUrl;
+      document.body.append(video);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          video.addEventListener('loadedmetadata', () => resolve(), {
+            once: true,
+          });
+          video.addEventListener(
+            'error',
+            () =>
+              reject(new Error('Native video decoder could not load source')),
+            { once: true },
+          );
+        });
+        const samples: number[] = [];
+        for (let index = 0; index < 20; index++) {
+          const target = (durationSeconds * ((index * 7) % 19)) / 20;
+          const started = performance.now();
+          const presented = new Promise<void>((resolve) => {
+            video.requestVideoFrameCallback(() => resolve());
+          });
+          video.currentTime = target;
+          await presented;
+          samples.push(performance.now() - started);
+        }
+        const sorted = [...samples].sort((left, right) => left - right);
+        return {
+          samples: samples.length,
+          p50Ms: Number(sorted[Math.floor(sorted.length * 0.5)]!.toFixed(1)),
+          p95Ms: Number(
+            sorted[Math.ceil(sorted.length * 0.95) - 1]!.toFixed(1),
+          ),
+          maxMs: Number(Math.max(...samples).toFixed(1)),
+        };
+      } finally {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.remove();
+        URL.revokeObjectURL(objectUrl);
+        input?.remove();
+      }
+    },
+    duration,
+  );
   return {
     scenario: scenario.name,
-    seekLatency: summarizeLatencies(seekLatencies),
+    seekLatency: summarizeLatencies(
+      seekMeasurements.map((sample) => sample.latencyMs),
+    ),
+    seekWorkerStageMs: {
+      sampleLookupDecode: summarizeSeekStage('sampleLookupDecodeMs'),
+      frameRender: summarizeSeekStage('drawFrameMs'),
+      bitmapCreation: summarizeSeekStage('bitmapCreationMs'),
+      total: summarizeSeekStage('workerTotalMs'),
+    },
+    nativeVideoSeekLatency,
     appearanceLatency: summarizeLatencies(appearanceLatencies),
   };
 }

@@ -10,6 +10,7 @@ import {
   VideoSampleSink,
   ALL_FORMATS,
 } from 'mediabunny';
+import type { VideoSinkDecoderOptions } from 'mediabunny';
 import type { Treatment } from './treatment';
 import { createAsciiFrame, paintAsciiFrame } from './asciiFrame';
 import {
@@ -24,6 +25,7 @@ type Request =
       type: 'load';
       file: File;
       previewDiagnostics?: boolean;
+      previewDecoderOptions?: VideoSinkDecoderOptions;
       testExportFailure?: boolean;
       testExportDelay?: number;
       testCodeBundleFailure?: boolean;
@@ -127,15 +129,18 @@ function drawAscii(
 ) {
   if (!target) throw new Error('No video frame is loaded.');
   const columns = treatment.density;
-  const rows = Math.max(
-    1,
-    Math.round(((columns * height) / width) * 0.55),
-  );
+  const rows = Math.max(1, Math.round(((columns * height) / width) * 0.55));
   previewSamplingCanvas ??= new OffscreenCanvas(columns, rows);
-  const frame = createAsciiFrame(sample, { width, height }, treatment, {
-    width: target.width,
-    height: target.height,
-  }, previewSamplingCanvas);
+  const frame = createAsciiFrame(
+    sample,
+    { width, height },
+    treatment,
+    {
+      width: target.width,
+      height: target.height,
+    },
+    previewSamplingCanvas,
+  );
   paintAsciiFrame(frame, target, treatment);
 }
 
@@ -298,7 +303,10 @@ function outputDimensions(sourceWidth: number, sourceHeight: number) {
   };
 }
 
-async function load(sourceFile: File) {
+async function load(
+  sourceFile: File,
+  previewDecoderOptions: VideoSinkDecoderOptions = {},
+) {
   if (sourceFile.size > 100_000_000)
     throw new Error(
       'This source video is larger than 100 MB (100,000,000 bytes). Choose a smaller file.',
@@ -360,7 +368,7 @@ async function load(sourceFile: File) {
     throw new Error(
       'This device cannot decode this H.264 source video. Try a supported H.264 MP4 in Chrome or Edge.',
     );
-  sink = new VideoSampleSink(track);
+  sink = new VideoSampleSink(track, previewDecoderOptions);
   const dimensions = outputDimensions(width, height);
   canvas = new OffscreenCanvas(dimensions.width, dimensions.height);
   firstTimestamp = await track.getFirstTimestamp();
@@ -792,7 +800,7 @@ scope.onmessage = (event: MessageEvent<Request>) => {
   }
   const task =
     request.type === 'load'
-      ? load(request.file)
+      ? load(request.file, request.previewDecoderOptions)
       : request.type === 'export'
         ? exportMp4(request.treatment, request.operationId)
         : request.type === 'code-bundle'
