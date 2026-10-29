@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-29T00:50:05.885Z",
+  "date": "2026-10-29T01:11:35.032Z",
   "browserName": "chrome-156",
   "browserVersion": "156.0.8078.73",
   "executable": "/tmp/ascii-gen-chrome/chrome-linux64/chrome",
@@ -33,42 +33,44 @@
       "dataDeflateBytes": 1598,
       "deltaJsonBytes": 6097,
       "deltaDeflateBytes": 1505,
+      "deltaPrototypeHtmlBytes": 8823,
+      "deltaPrototypeSingleFileZipBytes": 2929,
       "deltaChangedCharacterCells": 3600,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 19584,
       "deltaDecodedFrameDataEstimateBytes": 18960,
       "archiveBytes": 10176,
-      "generationMs": 201,
-      "consumerStartupMs": 75,
+      "generationMs": 234,
+      "consumerStartupMs": 71,
       "cadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83.40000000596046,
-        "p95GapMs": 84.09999999403954,
+        "medianGapMs": 83.29999999701977,
+        "p95GapMs": 83.8999999910593,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 0.29999999701976776,
+      "seekP95Ms": 0.20000000298023224,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 75,
+      "deltaConsumerStartupMs": 71,
       "deltaCadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83.29999999701977,
-        "p95GapMs": 83.70000000298023,
+        "medianGapMs": 83.20000000298023,
+        "p95GapMs": 83.6000000089407,
         "displayedFrameCount": 14
       },
-      "deltaSeekP95Ms": 0.30000001192092896,
+      "deltaSeekP95Ms": 0.29999999701976776,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1090600960,
-      "generationProcessRssSampleCount": 1,
-      "sampledConsumerProcessPeakRssBytes": 992890880,
+      "sampledGenerationProcessPeakRssBytes": 1109905408,
+      "generationProcessRssSampleCount": 2,
+      "sampledConsumerProcessPeakRssBytes": 1032241152,
       "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 994111488,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledDeltaConsumerProcessPeakRssBytes": 1025126400,
+      "deltaConsumerProcessRssSampleCount": 13
     },
     {
       "name": "landscape-short-default",
@@ -89,29 +91,31 @@
       "dataDeflateBytes": 9937,
       "deltaJsonBytes": 58609,
       "deltaDeflateBytes": 10156,
+      "deltaPrototypeHtmlBytes": 61334,
+      "deltaPrototypeSingleFileZipBytes": 11735,
       "deltaChangedCharacterCells": 50424,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 140928,
       "deltaDecodedFrameDataEstimateBytes": 131200,
       "archiveBytes": 27127,
-      "generationMs": 227,
-      "consumerStartupMs": 69,
+      "generationMs": 229,
+      "consumerStartupMs": 73,
       "cadence": {
         "framesAdvanced": 14,
         "medianGapMs": 83.3999999910593,
-        "p95GapMs": 84.29999999701977,
+        "p95GapMs": 83.70000000298023,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 17,
+      "seekP95Ms": 16.100000008940697,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 86,
+      "deltaConsumerStartupMs": 76,
       "deltaCadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83.20000000298023,
-        "p95GapMs": 84.80000001192093,
+        "medianGapMs": 83.3999999910593,
+        "p95GapMs": 83.79999999701977,
         "displayedFrameCount": 14
       },
       "deltaSeekP95Ms": 16.799999997019768,
@@ -119,12 +123,12 @@
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1088843776,
+      "sampledGenerationProcessPeakRssBytes": 1103998976,
       "generationProcessRssSampleCount": 2,
-      "sampledConsumerProcessPeakRssBytes": 996700160,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1000452096,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledConsumerProcessPeakRssBytes": 1017102336,
+      "consumerProcessRssSampleCount": 13,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1024778240,
+      "deltaConsumerProcessRssSampleCount": 13
     },
     {
       "name": "landscape-short-high",
@@ -145,41 +149,43 @@
       "dataDeflateBytes": 26678,
       "deltaJsonBytes": 189262,
       "deltaDeflateBytes": 27369,
+      "deltaPrototypeHtmlBytes": 191943,
+      "deltaPrototypeSingleFileZipBytes": 28956,
       "deltaChangedCharacterCells": 172000,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 428544,
       "deltaDecodedFrameDataEstimateBytes": 402400,
       "archiveBytes": 60573,
-      "generationMs": 258,
-      "consumerStartupMs": 101,
+      "generationMs": 262,
+      "consumerStartupMs": 97,
       "cadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 82.90000000596046,
-        "p95GapMs": 84.40000000596046,
+        "medianGapMs": 83.40000000596046,
+        "p95GapMs": 85.09999999403954,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 22.200000002980232,
+      "seekP95Ms": 22.099999994039536,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 111,
+      "deltaConsumerStartupMs": 94,
       "deltaCadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83,
+        "medianGapMs": 83.5,
         "p95GapMs": 86.3999999910593,
         "displayedFrameCount": 14
       },
-      "deltaSeekP95Ms": 23.200000002980232,
+      "deltaSeekP95Ms": 22.900000005960464,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1098649600,
-      "generationProcessRssSampleCount": 2,
-      "sampledConsumerProcessPeakRssBytes": 1004535808,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1007398912,
+      "sampledGenerationProcessPeakRssBytes": 1136021504,
+      "generationProcessRssSampleCount": 3,
+      "sampledConsumerProcessPeakRssBytes": 1025138688,
+      "consumerProcessRssSampleCount": 13,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1023094784,
       "deltaConsumerProcessRssSampleCount": 14
     },
     {
@@ -201,41 +207,43 @@
       "dataDeflateBytes": 139277,
       "deltaJsonBytes": 1130772,
       "deltaDeflateBytes": 148588,
+      "deltaPrototypeHtmlBytes": 1133486,
+      "deltaPrototypeSingleFileZipBytes": 150245,
       "deltaChangedCharacterCells": 1016160,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 2648064,
       "deltaDecodedFrameDataEstimateBytes": 2303008,
       "archiveBytes": 285829,
-      "generationMs": 783,
-      "consumerStartupMs": 169,
+      "generationMs": 752,
+      "consumerStartupMs": 182,
       "cadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83,
-        "p95GapMs": 85.20000000298023,
+        "medianGapMs": 83.80000001192093,
+        "p95GapMs": 93.5,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 50.599999994039536,
+      "seekP95Ms": 49.400000005960464,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
-        "totalJSHeapSize": 11200000
+        "totalJSHeapSize": 10600000
       },
-      "deltaConsumerStartupMs": 155,
+      "deltaConsumerStartupMs": 153,
       "deltaCadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 82.70000000298023,
-        "p95GapMs": 85.5,
+        "medianGapMs": 83.40000000596046,
+        "p95GapMs": 84.3999999910593,
         "displayedFrameCount": 14
       },
-      "deltaSeekP95Ms": 49.20000000298023,
+      "deltaSeekP95Ms": 49.70000000298023,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
-        "totalJSHeapSize": 10000000
+        "totalJSHeapSize": 10600000
       },
-      "sampledGenerationProcessPeakRssBytes": 1182031872,
+      "sampledGenerationProcessPeakRssBytes": 1212071936,
       "generationProcessRssSampleCount": 6,
-      "sampledConsumerProcessPeakRssBytes": 1016532992,
+      "sampledConsumerProcessPeakRssBytes": 1043120128,
       "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1023639552,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1039695872,
       "deltaConsumerProcessRssSampleCount": 14
     },
     {
@@ -257,42 +265,44 @@
       "dataDeflateBytes": 103089,
       "deltaJsonBytes": 1006534,
       "deltaDeflateBytes": 109113,
+      "deltaPrototypeHtmlBytes": 1009247,
+      "deltaPrototypeSingleFileZipBytes": 110797,
       "deltaChangedCharacterCells": 920800,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 2648064,
       "deltaDecodedFrameDataEstimateBytes": 2093216,
       "archiveBytes": 213572,
-      "generationMs": 1155,
-      "consumerStartupMs": 196,
+      "generationMs": 1322,
+      "consumerStartupMs": 299,
       "cadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 82.30000001192093,
-        "p95GapMs": 88.29999999701977,
+        "medianGapMs": 81.5,
+        "p95GapMs": 99.5,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 53.80000001192093,
+      "seekP95Ms": 55.8999999910593,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10600000
       },
-      "deltaConsumerStartupMs": 203,
+      "deltaConsumerStartupMs": 167,
       "deltaCadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 82.70000000298023,
-        "p95GapMs": 84.90000000596046,
+        "medianGapMs": 83,
+        "p95GapMs": 85.6000000089407,
         "displayedFrameCount": 14
       },
-      "deltaSeekP95Ms": 54.30000001192093,
+      "deltaSeekP95Ms": 52.70000000298023,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1247207424,
+      "sampledGenerationProcessPeakRssBytes": 1270943744,
       "generationProcessRssSampleCount": 10,
-      "sampledConsumerProcessPeakRssBytes": 1044275200,
-      "consumerProcessRssSampleCount": 15,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1054171136,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledConsumerProcessPeakRssBytes": 1062002688,
+      "consumerProcessRssSampleCount": 16,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1041694720,
+      "deltaConsumerProcessRssSampleCount": 15
     },
     {
       "name": "source-color-default",
@@ -313,41 +323,43 @@
       "dataDeflateBytes": 125894,
       "deltaJsonBytes": 771472,
       "deltaDeflateBytes": 126600,
+      "deltaPrototypeHtmlBytes": 774197,
+      "deltaPrototypeSingleFileZipBytes": 128243,
       "deltaChangedCharacterCells": 103400,
       "deltaChangedColorCells": 106744,
       "fullDecodedFrameDataEstimateBytes": 1650432,
       "deltaDecodedFrameDataEstimateBytes": 543376,
       "archiveBytes": 259135,
-      "generationMs": 640,
+      "generationMs": 672,
       "consumerStartupMs": 119,
       "cadence": {
         "framesAdvanced": 14,
-        "medianGapMs": 83.29999999701977,
-        "p95GapMs": 85.3999999910593,
+        "medianGapMs": 83.09999999403954,
+        "p95GapMs": 84.5,
         "displayedFrameCount": 14
       },
-      "seekP95Ms": 22.30000001192093,
+      "seekP95Ms": 25.100000008940697,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 96,
+      "deltaConsumerStartupMs": 120,
       "deltaCadence": {
         "framesAdvanced": 14,
         "medianGapMs": 83.29999999701977,
-        "p95GapMs": 84.70000000298023,
+        "p95GapMs": 83.8999999910593,
         "displayedFrameCount": 14
       },
-      "deltaSeekP95Ms": 22.399999991059303,
+      "deltaSeekP95Ms": 21.799999997019768,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1161564160,
+      "sampledGenerationProcessPeakRssBytes": 1154265088,
       "generationProcessRssSampleCount": 5,
-      "sampledConsumerProcessPeakRssBytes": 1043619840,
+      "sampledConsumerProcessPeakRssBytes": 1032126464,
       "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1038245888,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1038573568,
       "deltaConsumerProcessRssSampleCount": 13
     },
     {
@@ -369,42 +381,44 @@
       "dataDeflateBytes": 40602,
       "deltaJsonBytes": 237658,
       "deltaDeflateBytes": 41343,
+      "deltaPrototypeHtmlBytes": 240387,
+      "deltaPrototypeSingleFileZipBytes": 43018,
       "deltaChangedCharacterCells": 201872,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 563712,
       "deltaDecodedFrameDataEstimateBytes": 507600,
       "archiveBytes": 88585,
-      "generationMs": 1257,
-      "consumerStartupMs": 89,
+      "generationMs": 1298,
+      "consumerStartupMs": 119,
       "cadence": {
         "framesAdvanced": 28,
-        "medianGapMs": 49.099999994039536,
-        "p95GapMs": 51,
+        "medianGapMs": 34.69999998807907,
+        "p95GapMs": 50.30000001192093,
         "displayedFrameCount": 28
       },
-      "seekP95Ms": 17.19999998807907,
+      "seekP95Ms": 20.700000002980232,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 85,
+      "deltaConsumerStartupMs": 80,
       "deltaCadence": {
         "framesAdvanced": 28,
-        "medianGapMs": 34.20000000298023,
-        "p95GapMs": 50.599999994039536,
+        "medianGapMs": 48.900000005960464,
+        "p95GapMs": 51.099999994039536,
         "displayedFrameCount": 28
       },
-      "deltaSeekP95Ms": 16.799999997019768,
+      "deltaSeekP95Ms": 18.599999994039536,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1167663104,
-      "generationProcessRssSampleCount": 10,
-      "sampledConsumerProcessPeakRssBytes": 1022439424,
+      "sampledGenerationProcessPeakRssBytes": 1178501120,
+      "generationProcessRssSampleCount": 11,
+      "sampledConsumerProcessPeakRssBytes": 1018408960,
       "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1024839680,
-      "deltaConsumerProcessRssSampleCount": 14
+      "sampledDeltaConsumerProcessPeakRssBytes": 1005375488,
+      "deltaConsumerProcessRssSampleCount": 13
     },
     {
       "name": "capped-cadence",
@@ -425,41 +439,43 @@
       "dataDeflateBytes": 24591,
       "deltaJsonBytes": 144459,
       "deltaDeflateBytes": 24879,
+      "deltaPrototypeHtmlBytes": 147184,
+      "deltaPrototypeSingleFileZipBytes": 26466,
       "deltaChangedCharacterCells": 123640,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 352320,
       "deltaDecodedFrameDataEstimateBytes": 313472,
       "archiveBytes": 56358,
-      "generationMs": 1055,
-      "consumerStartupMs": 81,
+      "generationMs": 853,
+      "consumerStartupMs": 111,
       "cadence": {
-        "framesAdvanced": 35,
-        "medianGapMs": 33.29999999701977,
-        "p95GapMs": 34.6000000089407,
-        "displayedFrameCount": 35
-      },
-      "seekP95Ms": 16.799999997019768,
-      "consumerJsHeap": {
-        "usedJSHeapSize": 10000000,
-        "totalJSHeapSize": 10000000
-      },
-      "deltaConsumerStartupMs": 69,
-      "deltaCadence": {
         "framesAdvanced": 35,
         "medianGapMs": 33.3999999910593,
         "p95GapMs": 34.1000000089407,
         "displayedFrameCount": 35
       },
-      "deltaSeekP95Ms": 17.599999994039536,
+      "seekP95Ms": 18.700000002980232,
+      "consumerJsHeap": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000
+      },
+      "deltaConsumerStartupMs": 93,
+      "deltaCadence": {
+        "framesAdvanced": 35,
+        "medianGapMs": 33.29999999701977,
+        "p95GapMs": 33.79999999701977,
+        "displayedFrameCount": 35
+      },
+      "deltaSeekP95Ms": 18.099999994039536,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1145511936,
-      "generationProcessRssSampleCount": 9,
-      "sampledConsumerProcessPeakRssBytes": 1024831488,
-      "consumerProcessRssSampleCount": 14,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1026727936,
+      "sampledGenerationProcessPeakRssBytes": 1120940032,
+      "generationProcessRssSampleCount": 7,
+      "sampledConsumerProcessPeakRssBytes": 1019809792,
+      "consumerProcessRssSampleCount": 13,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1027366912,
       "deltaConsumerProcessRssSampleCount": 13
     },
     {
@@ -481,41 +497,43 @@
       "dataDeflateBytes": 188060,
       "deltaJsonBytes": 1096170,
       "deltaDeflateBytes": 189872,
+      "deltaPrototypeHtmlBytes": 1098901,
+      "deltaPrototypeSingleFileZipBytes": 191436,
       "deltaChangedCharacterCells": 928576,
       "deltaChangedColorCells": 0,
       "fullDecodedFrameDataEstimateBytes": 2624784,
       "deltaDecodedFrameDataEstimateBytes": 2315120,
       "archiveBytes": 383252,
-      "generationMs": 10043,
-      "consumerStartupMs": 128,
+      "generationMs": 8792,
+      "consumerStartupMs": 134,
       "cadence": {
-        "framesAdvanced": 35,
-        "medianGapMs": 33.30000001192093,
-        "p95GapMs": 34.1000000089407,
-        "displayedFrameCount": 35
+        "framesAdvanced": 36,
+        "medianGapMs": 33.20000000298023,
+        "p95GapMs": 34.6000000089407,
+        "displayedFrameCount": 36
       },
-      "seekP95Ms": 16.599999994039536,
+      "seekP95Ms": 17.200000002980232,
       "consumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "deltaConsumerStartupMs": 113,
+      "deltaConsumerStartupMs": 121,
       "deltaCadence": {
-        "framesAdvanced": 35,
+        "framesAdvanced": 36,
         "medianGapMs": 33.29999999701977,
         "p95GapMs": 34.20000000298023,
-        "displayedFrameCount": 35
+        "displayedFrameCount": 36
       },
-      "deltaSeekP95Ms": 18.700000002980232,
+      "deltaSeekP95Ms": 17.900000005960464,
       "deltaConsumerJsHeap": {
         "usedJSHeapSize": 10000000,
         "totalJSHeapSize": 10000000
       },
-      "sampledGenerationProcessPeakRssBytes": 1355522048,
-      "generationProcessRssSampleCount": 80,
-      "sampledConsumerProcessPeakRssBytes": 1040150528,
-      "consumerProcessRssSampleCount": 13,
-      "sampledDeltaConsumerProcessPeakRssBytes": 1037119488,
+      "sampledGenerationProcessPeakRssBytes": 1372876800,
+      "generationProcessRssSampleCount": 71,
+      "sampledConsumerProcessPeakRssBytes": 1032617984,
+      "consumerProcessRssSampleCount": 14,
+      "sampledDeltaConsumerProcessPeakRssBytes": 1030426624,
       "deltaConsumerProcessRssSampleCount": 14
     }
   ]

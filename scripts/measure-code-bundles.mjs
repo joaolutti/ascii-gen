@@ -191,6 +191,12 @@ button.addEventListener('click',()=>{playing=!playing;button.textContent=playing
 </script>`;
 }
 
+function singleFileZipBytes(name, content) {
+  const nameBytes = Buffer.byteLength(name);
+  const compressedBytes = deflateRawSync(Buffer.from(content)).byteLength;
+  return 30 + nameBytes + compressedBytes + 46 + nameBytes + 22;
+}
+
 async function processRss() {
   const result = spawnSync('ps', ['-eo', 'rss,args'], { encoding: 'utf8' });
   return (
@@ -376,7 +382,8 @@ try {
     const seekP95Ms =
       sortedSeekDurations[Math.ceil(sortedSeekDurations.length * 0.95) - 1];
     await consumer.close();
-    writeFileSync(join(dir, 'delta.html'), deltaExample(data, delta));
+    const deltaHtml = deltaExample(data, delta);
+    writeFileSync(join(dir, 'delta.html'), deltaHtml);
     await browser.close();
     browser = undefined;
 
@@ -495,6 +502,11 @@ try {
       dataDeflateBytes: deflateRawSync(dataBytes).byteLength,
       deltaJsonBytes: compactDelta.byteLength,
       deltaDeflateBytes: deflateRawSync(compactDelta).byteLength,
+      deltaPrototypeHtmlBytes: Buffer.byteLength(deltaHtml),
+      deltaPrototypeSingleFileZipBytes: singleFileZipBytes(
+        'index.html',
+        deltaHtml,
+      ),
       deltaChangedCharacterCells: deltaCharacterCells,
       deltaChangedColorCells: deltaColorCells,
       fullDecodedFrameDataEstimateBytes,
