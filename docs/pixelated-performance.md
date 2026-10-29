@@ -118,6 +118,56 @@ Canvas draw calls measure frames painted by the app, not monitor presentation or
 
 ## Remaining validation
 
-The Pixelated comparison and approved highlight treatment are documented above. Chrome and Edge performance runs remain open because neither browser is installed in this environment. The 100 MB input-size boundary is covered by source-admission tests, but it is not a playback-performance scenario.
+### Supported-browser matrix (2026-10-28)
+
+The same 13-configuration matrix was run in official Chrome for Testing 156.0.8078.73 and Microsoft Edge 156.0.4314.50. Each browser completed three sustained 11-second windows per configuration and 20 seek plus 20 appearance samples per configuration. The draw-rate and p95 frame-gap columns report medians across the three windows; interaction p95 values come from the 20 samples collected in the final window. Both runs used the machine and instrumentation described above. They ran headless with the configured desktop viewport; this is automated browser evidence, not a manual headed usability review.
+
+| Scenario | Chrome draws/s | Chrome p95 gap | Chrome seek / appearance p95 | Edge draws/s | Edge p95 gap | Edge seek / appearance p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Landscape 12 fps, low density | 12.0 | 86.8 ms | 25.1 / 24.8 ms | 12.1 | 86.2 ms | 26.1 / 25.8 ms |
+| Landscape 12 fps, default density | 12.1 | 86.3 ms | 27.9 / 26.9 ms | 12.1 | 87.1 ms | 27.5 / 26.6 ms |
+| Landscape 12 fps, high density | 12.0 | 85.9 ms | 30.8 / 27.9 ms | 12.1 | 86.2 ms | 30.2 / 26.7 ms |
+| Landscape 12 fps, source color | 12.1 | 86.5 ms | 27.7 / 27.3 ms | 12.1 | 85.9 ms | 26.5 / 27.1 ms |
+| Portrait 12 fps, default density | 12.1 | 86.3 ms | 35.0 / 26.9 ms | 12.1 | 88.3 ms | 42.9 / 26.7 ms |
+| Landscape 30 fps | 30.0 | 36.5 ms | 27.8 / 28.4 ms | 30.0 | 37.2 ms | 27.4 / 27.1 ms |
+| Landscape 23.976 fps | 24.0 | 51.1 ms | 27.9 / 27.5 ms | 24.0 | 51.2 ms | 27.1 / 26.5 ms |
+| Landscape 60 fps | 30.0 | 36.3 ms | 28.5 / 27.2 ms | 30.1 | 37.3 ms | 28.5 / 27.3 ms |
+| Near-limit 1080p60, 14.9 s | 30.0 | 35.9 ms | 260.3 / 27.5 ms | 30.1 | 37.6 ms | 310.4 / 26.7 ms |
+| Pixelated landscape, 8 px grid | 12.1 | 86.1 ms | 14.4 / 27.8 ms | 12.1 | 87.2 ms | 27.3 / 27.0 ms |
+| Pixelated landscape, 4 px grid | 12.1 | 86.1 ms | 27.3 / 42.6 ms | 12.1 | 85.5 ms | 28.6 / 26.9 ms |
+| Pixelated portrait, 8 px grid | 12.1 | 85.1 ms | 26.2 / 27.6 ms | 12.1 | 86.3 ms | 25.5 / 27.0 ms |
+| Pixelated portrait, 4 px grid | 12.0 | 86.0 ms | 27.6 / 27.8 ms | 12.1 | 87.6 ms | 29.5 / 41.5 ms |
+| Pixelated landscape, 30 fps, 8 px grid | 30.1 | 36.6 ms | 27.6 / 27.5 ms | 30.1 | 36.8 ms | 27.5 / 26.8 ms |
+| Pixelated landscape, 30 fps, 4 px grid | 30.0 | 36.3 ms | 27.9 / 40.8 ms | 30.1 | 37.1 ms | 27.2 / 42.4 ms |
+| Pixelated portrait, 30 fps, 8 px grid | 30.0 | 36.3 ms | 28.0 / 27.2 ms | 30.1 | 36.6 ms | 28.4 / 26.9 ms |
+| Pixelated portrait, 30 fps, 4 px grid | 30.0 | 36.7 ms | 28.3 / 27.5 ms | 30.1 | 37.4 ms | 27.4 / 42.0 ms |
+
+All measured configurations meet the cadence target (at least 90% of capped source cadence) and the frame-gap target (p95 no greater than 1.5 target intervals). Appearance p95 remains below 250 ms. The 150 ms seek budget passes in every listed case except near-limit 1080p60: Chrome measured 260.3 ms and Edge 310.4 ms. This budget miss keeps #13 open. Both browsers had zero Long Tasks, stale replies, and replaced pending requests. Peak page-JavaScript heap across the windows was 27.0 MiB in Chrome and 25.7 MiB in Edge; these measurements exclude decoder, worker, GPU, and browser-process memory.
+
+The four 30 fps Pixelated scenarios were run as a targeted extension after the 13-case matrix, again with three 11-second windows and 20 seek/appearance samples per configuration. They meet the capped 30 fps cadence and frame-gap targets in both browsers. Their complete records are [Chrome Pixelated 30 fps](pixelated-performance-chrome-pixelated-30fps.json) and [Edge Pixelated 30 fps](pixelated-performance-edge-pixelated-30fps.json).
+
+The three-window diagnostics-disabled control measured the same 12.1 draws/s as the instrumented landscape 12 fps default-density case in both browsers (0% cadence difference). Canvas instrumentation self-time was 0.4–0.7 ms per window in Chrome and 0.6–1.0 ms in Edge. Raw per-window reports are [Chrome 156](pixelated-performance-chrome-156.json) and [Edge 156](pixelated-performance-edge-156.json).
+
+### Matched pre-tuning baseline
+
+To capture a comparable baseline on the newly available supported browsers, the same opt-in test was run at the measured baseline commit `1f06126` on this machine with the same Chrome and Edge binaries and fixtures. That commit contains the nine ASCII configurations in #31; the four Pixelated scenarios were added afterward. Each ASCII configuration used three 11-second windows and 20 seek/appearance samples in the final window. Draw-rate and gap values below are medians across the three windows. For the post-tuning values, see the corresponding ASCII rows in the supported-browser matrix above. Raw data: [Chrome baseline](pixelated-performance-chrome-156-baseline.json), [Edge baseline](pixelated-performance-edge-156-baseline.json).
+
+| ASCII configuration | Chrome baseline draws/s | Chrome p95 gap | Chrome seek / appearance p95 | Edge baseline draws/s | Edge p95 gap | Edge seek / appearance p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Landscape 12 fps, low density | 12.1 | 87.0 ms | 22.9 / 11.2 ms | 12.1 | 86.9 ms | 25.4 / 26.3 ms |
+| Landscape 12 fps, default density | 12.1 | 86.5 ms | 27.9 / 27.1 ms | 12.1 | 86.2 ms | 26.7 / 26.8 ms |
+| Landscape 12 fps, high density | 12.1 | 86.5 ms | 27.5 / 27.5 ms | 12.1 | 86.9 ms | 27.5 / 26.4 ms |
+| Landscape 12 fps, source color | 12.0 | 86.3 ms | 27.2 / 27.7 ms | 12.1 | 87.0 ms | 30.7 / 27.0 ms |
+| Portrait 12 fps, default density | 12.1 | 86.1 ms | 32.3 / 27.4 ms | 12.1 | 87.7 ms | 27.7 / 26.5 ms |
+| Landscape 30 fps | 30.0 | 36.6 ms | 28.3 / 27.3 ms | 30.0 | 37.1 ms | 27.6 / 27.8 ms |
+| Landscape 23.976 fps | 24.0 | 51.1 ms | 27.5 / 27.2 ms | 24.0 | 51.2 ms | 27.4 / 27.3 ms |
+| Landscape 60 fps | 30.0 | 36.5 ms | 28.5 / 42.9 ms | 30.1 | 37.2 ms | 27.9 / 27.3 ms |
+| Near-limit 1080p60, 14.9 s | 30.1 | 36.7 ms | 292.4 / 27.4 ms | 30.1 | 37.1 ms | 275.6 / 27.1 ms |
+
+On this matched setup, both browsers already meet the cadence and frame-gap targets at `1f06126`. The newer Chrome 156 baseline is materially faster than the earlier Chromium 155 report, so the older numbers are not used for before/after claims here. Post-tuning near-limit seek p95 changed from 292.4 to 260.3 ms in Chrome, and from 275.6 to 310.4 ms in Edge. These results show a small Chrome improvement and an Edge regression; both remain above 150 ms. The current forward-seek restart heuristic therefore does not establish a cross-browser seek fix. Keep #13 open for the seek budget and a correction that is validated in both browsers.
+
+The ASCII matrix samples source color at default density, not every density/color combination. Pixelated performance covers 12 and 30 fps short portrait/landscape fixtures at default and finest grids; it does not cover 60 fps or near-limit Pixelated sources. The near-limit ASCII case combines maximum duration, dimensions, and cadence but does not approach the 100 MB input-size limit. The 100 MB boundary is covered by source-admission tests, not playback measurements. Heap evidence is page-only and cannot establish total media/process memory or a cross-device budget.
+
+The supplied-reference comparison and approved highlight treatment are documented above. Automated performance runs used official Chrome and Edge in headless mode. The editor was also opened in headed Chrome 156 and Edge 156 with the local fish fixture; the Pixelated preview was visually inspected in each. These visual checks do not replace longer manual playback review. The media stays local as required by ADR-0001. Playback tuning does not change the selected treatment or reduce export fidelity.
 
 The media stays local as required by ADR-0001. Playback tuning does not change the selected treatment or reduce export fidelity.

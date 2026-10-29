@@ -1,0 +1,1379 @@
+{
+  "machine": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpuModel": "Intel(R) Core(TM) i5-10210U CPU @ 1.60GHz",
+    "logicalCpus": 8,
+    "memoryBytes": 16398417920
+  },
+  "measurements": [
+    {
+      "scenario": "pixelated-landscape-30fps-default-gridstep",
+      "repetition": 1,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 36.4,
+        "max": 38.6
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.4,
+        "p95": 6.6,
+        "max": 9.1
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 3.5,
+        "p95": 6.9,
+        "max": 9.1
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.1
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2,
+          "p95": 5.4,
+          "max": 7.8
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 1,
+          "p95": 1.3,
+          "max": 2
+        },
+        "total": {
+          "count": 330,
+          "p50": 3.2,
+          "p95": 6.5,
+          "max": 8.8
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 7039832,
+        "maxBytes": 8392498
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      }
+    },
+    {
+      "scenario": "pixelated-landscape-30fps-default-gridstep",
+      "repetition": 2,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 36.8,
+        "max": 40.7
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.5,
+        "p95": 7,
+        "max": 10.2
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 3.5,
+        "p95": 7.1,
+        "max": 10.3
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 1.8
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 1.9,
+          "p95": 5.7,
+          "max": 9
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 1,
+          "p95": 1.9,
+          "max": 3.4
+        },
+        "total": {
+          "count": 330,
+          "p50": 3.2,
+          "p95": 6.8,
+          "max": 10.1
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 3.3,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 9773851,
+        "maxBytes": 12545448
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      }
+    },
+    {
+      "scenario": "pixelated-landscape-30fps-default-gridstep",
+      "repetition": 3,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 330,
+      "previewImageDrawHz": 30,
+      "previewImageGapMs": {
+        "count": 329,
+        "p50": 33.3,
+        "p95": 36.9,
+        "max": 39.1
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.4,
+        "p95": 7.2,
+        "max": 11
+      },
+      "requestToPresentationMs": {
+        "count": 330,
+        "p50": 3.5,
+        "p95": 7.3,
+        "max": 11.1
+      },
+      "replyToPresentationMs": {
+        "count": 330,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 330,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.2
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 1.9,
+          "p95": 5.8,
+          "max": 7.6
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 1,
+          "p95": 1.3,
+          "max": 3.9
+        },
+        "total": {
+          "count": 330,
+          "p50": 3.1,
+          "p95": 7,
+          "max": 9.5
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 330,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 1.7,
+      "previewPositionChanges": 44,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 7844142,
+        "maxBytes": 14946783
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      },
+      "interactions": {
+        "scenario": "pixelated-landscape-30fps-default-gridstep",
+        "seekLatency": {
+          "samples": 20,
+          "p50Ms": 25.5,
+          "p95Ms": 27.5,
+          "maxMs": 27.5
+        },
+        "appearanceLatency": {
+          "samples": 20,
+          "p50Ms": 25.4,
+          "p95Ms": 26.8,
+          "maxMs": 26.8
+        }
+      }
+    },
+    {
+      "scenario": "pixelated-landscape-30fps-finest-gridstep",
+      "repetition": 1,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 37.1,
+        "max": 39.1
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.2,
+        "p95": 9.8,
+        "max": 12.2
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.3,
+        "p95": 10,
+        "max": 12.4
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 6.4,
+          "max": 8.5
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 3.5,
+          "max": 5.1
+        },
+        "total": {
+          "count": 330,
+          "p50": 5.9,
+          "p95": 9.5,
+          "max": 12
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.4,
+      "previewPositionChanges": 42,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 10695560,
+        "maxBytes": 13660381
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      }
+    },
+    {
+      "scenario": "pixelated-landscape-30fps-finest-gridstep",
+      "repetition": 2,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 36.9,
+        "max": 38.9
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.2,
+        "p95": 9.8,
+        "max": 11.8
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.3,
+        "p95": 10,
+        "max": 11.9
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.2
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 6.6,
+          "max": 8.3
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 3.5,
+          "max": 5.4
+        },
+        "total": {
+          "count": 330,
+          "p50": 6,
+          "p95": 9.6,
+          "max": 11.5
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.5,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 9752593,
+        "maxBytes": 14034072
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      }
+    },
+    {
+      "scenario": "pixelated-landscape-30fps-finest-gridstep",
+      "repetition": 3,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 320,
+      "previewCanvasHeight": 180,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 37.4,
+        "max": 38.7
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.4,
+        "p95": 10.1,
+        "max": 12.2
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.5,
+        "p95": 10.3,
+        "max": 12.4
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 5.8
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 6.6,
+          "max": 8.7
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 3,
+          "p95": 3.5,
+          "max": 5.7
+        },
+        "total": {
+          "count": 330,
+          "p50": 6.2,
+          "p95": 9.9,
+          "max": 11.9
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.3,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 10247436,
+        "maxBytes": 17946381
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 320,
+        "height": 180,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      },
+      "interactions": {
+        "scenario": "pixelated-landscape-30fps-finest-gridstep",
+        "seekLatency": {
+          "samples": 20,
+          "p50Ms": 26.6,
+          "p95Ms": 27.2,
+          "maxMs": 27.2
+        },
+        "appearanceLatency": {
+          "samples": 20,
+          "p50Ms": 25.2,
+          "p95Ms": 42.4,
+          "maxMs": 42.4
+        }
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-default-gridstep",
+      "repetition": 1,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 36.9,
+        "max": 39.9
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.1,
+        "p95": 6.6,
+        "max": 12.1
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 3.2,
+        "p95": 6.8,
+        "max": 12.2
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.3
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 1.8,
+          "p95": 5.4,
+          "max": 10.5
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 0.9,
+          "p95": 1.6,
+          "max": 2
+        },
+        "total": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 6.4,
+          "max": 11.8
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 1.7,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 12905825,
+        "maxBytes": 16153262
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-default-gridstep",
+      "repetition": 2,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.4,
+        "p95": 36.6,
+        "max": 38.3
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.2,
+        "p95": 6.6,
+        "max": 8
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 3.3,
+        "p95": 6.6,
+        "max": 8
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.1
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 1.9,
+          "p95": 5.5,
+          "max": 6.7
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 0.9,
+          "p95": 1.1,
+          "max": 1.9
+        },
+        "total": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 6.4,
+          "max": 7.6
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 1.5,
+      "previewPositionChanges": 44,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 12157202,
+        "maxBytes": 14969468
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-default-gridstep",
+      "repetition": 3,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.4,
+        "p95": 36.5,
+        "max": 38.8
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 3.2,
+        "p95": 6.6,
+        "max": 8.9
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 3.3,
+        "p95": 6.8,
+        "max": 9.1
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.2
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.1
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 1.9,
+          "p95": 5.5,
+          "max": 7.3
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 0.9,
+          "p95": 1.4,
+          "max": 1.9
+        },
+        "total": {
+          "count": 330,
+          "p50": 3,
+          "p95": 6.3,
+          "max": 8.5
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 1.7,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 12834828,
+        "maxBytes": 19006659
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 8
+      },
+      "interactions": {
+        "scenario": "pixelated-portrait-30fps-default-gridstep",
+        "seekLatency": {
+          "samples": 20,
+          "p50Ms": 25.6,
+          "p95Ms": 28.4,
+          "maxMs": 28.4
+        },
+        "appearanceLatency": {
+          "samples": 20,
+          "p50Ms": 25.4,
+          "p95Ms": 26.9,
+          "maxMs": 26.9
+        }
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-finest-gridstep",
+      "repetition": 1,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 36.6,
+        "max": 38.3
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.1,
+        "p95": 9.6,
+        "max": 11
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.2,
+        "p95": 9.7,
+        "max": 11.1
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.2
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2.8,
+          "p95": 6.6,
+          "max": 7.3
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 2.8,
+          "p95": 3.5,
+          "max": 5.2
+        },
+        "total": {
+          "count": 330,
+          "p50": 5.8,
+          "p95": 9.3,
+          "max": 10.6
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.1,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 14142184,
+        "maxBytes": 17066437
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-finest-gridstep",
+      "repetition": 2,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.4,
+        "p95": 37.6,
+        "max": 41.4
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.4,
+        "p95": 10.6,
+        "max": 15.3
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.4,
+        "p95": 10.7,
+        "max": 15.4
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.3,
+          "max": 2.6
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 7.1,
+          "max": 10.7
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 3.7,
+          "max": 4.9
+        },
+        "total": {
+          "count": 330,
+          "p50": 6,
+          "p95": 10.3,
+          "max": 14.8
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.6,
+      "previewPositionChanges": 44,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 14338137,
+        "maxBytes": 17402653
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      }
+    },
+    {
+      "scenario": "pixelated-portrait-30fps-finest-gridstep",
+      "repetition": 3,
+      "hardwareConcurrency": 8,
+      "deviceMemoryGb": 16,
+      "previewCanvasWidth": 180,
+      "previewCanvasHeight": 320,
+      "reportedSourceFrameRate": 30,
+      "playbackScheduler": {
+        "frameIntervalMs": 33.333333333333336,
+        "ticks": 692,
+        "eligible": 345,
+        "published": 345
+      },
+      "elapsedSeconds": 11.01,
+      "animationFrameHz": 59.9,
+      "rAFGapMs": {
+        "count": 660,
+        "p50": 16.7,
+        "p95": 16.7,
+        "max": 16.8
+      },
+      "previewImageDrawCount": 331,
+      "previewImageDrawHz": 30.1,
+      "previewImageGapMs": {
+        "count": 330,
+        "p50": 33.3,
+        "p95": 37.4,
+        "max": 43.2
+      },
+      "requestToReplyMs": {
+        "count": 330,
+        "p50": 6.6,
+        "p95": 11.3,
+        "max": 18.9
+      },
+      "requestToPresentationMs": {
+        "count": 331,
+        "p50": 6.7,
+        "p95": 11.4,
+        "max": 19
+      },
+      "replyToPresentationMs": {
+        "count": 331,
+        "p50": 0.1,
+        "p95": 0.2,
+        "max": 0.3
+      },
+      "drawImageMs": {
+        "count": 331,
+        "p50": 0,
+        "p95": 0.1,
+        "max": 0.2
+      },
+      "workerStageMs": {
+        "sampleLookupDecode": {
+          "count": 330,
+          "p50": 0.1,
+          "p95": 0.4,
+          "max": 2.5
+        },
+        "frameRender": {
+          "count": 330,
+          "p50": 3,
+          "p95": 6.8,
+          "max": 13.6
+        },
+        "bitmapCreation": {
+          "count": 330,
+          "p50": 2.9,
+          "p95": 4.7,
+          "max": 8.4
+        },
+        "total": {
+          "count": 330,
+          "p50": 6.3,
+          "p95": 11,
+          "max": 17.9
+        }
+      },
+      "previewQueue": {
+        "requests": 330,
+        "replies": 330,
+        "presentations": 331,
+        "staleReplies": 0,
+        "replacedPendingRequests": 0,
+        "workerBound": "one in-flight render plus one replaceable pending request"
+      },
+      "instrumentationWrapperMs": 2.8,
+      "previewPositionChanges": 43,
+      "longTaskCount": 0,
+      "longTaskDurationMs": 0,
+      "jsHeapBytes": {
+        "minBytes": 15294547,
+        "maxBytes": 21434504
+      },
+      "browserEngine": "chromium",
+      "browserVersion": "156.0.4314.50",
+      "source": {
+        "width": 180,
+        "height": 320,
+        "frameRate": 30,
+        "durationSeconds": 2
+      },
+      "treatment": {
+        "mode": "Pixelated",
+        "gridStep": 4
+      },
+      "interactions": {
+        "scenario": "pixelated-portrait-30fps-finest-gridstep",
+        "seekLatency": {
+          "samples": 20,
+          "p50Ms": 25.2,
+          "p95Ms": 27.4,
+          "maxMs": 27.4
+        },
+        "appearanceLatency": {
+          "samples": 20,
+          "p50Ms": 26.1,
+          "p95Ms": 42,
+          "maxMs": 42
+        }
+      }
+    }
+  ]
+}

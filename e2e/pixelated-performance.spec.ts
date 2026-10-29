@@ -67,6 +67,10 @@ function prepareFixtures() {
       'landscape-320x180-30fps',
       'testsrc2=size=320x180:rate=30:duration=2',
     ),
+    portrait30: createFixture(
+      'portrait-180x320-30fps',
+      'testsrc2=size=180x320:rate=30:duration=2',
+    ),
     nearLimit: createFixture(
       'near-limit-1920x1080-60fps-14_9s',
       'testsrc2=size=1920x1080:rate=60:duration=14.9',
@@ -706,13 +710,63 @@ test('records repeated preview playback measurements for the opt-in browser matr
       mode: 'Pixelated',
       gridStep: 'finest',
     },
+    {
+      name: 'pixelated-landscape-30fps-default-gridstep',
+      input: fixtures.landscape30,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 30,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'default',
+    },
+    {
+      name: 'pixelated-landscape-30fps-finest-gridstep',
+      input: fixtures.landscape30,
+      mediaWidth: 320,
+      mediaHeight: 180,
+      mediaFrameRate: 30,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'finest',
+    },
+    {
+      name: 'pixelated-portrait-30fps-default-gridstep',
+      input: fixtures.portrait30,
+      mediaWidth: 180,
+      mediaHeight: 320,
+      mediaFrameRate: 30,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'default',
+    },
+    {
+      name: 'pixelated-portrait-30fps-finest-gridstep',
+      input: fixtures.portrait30,
+      mediaWidth: 180,
+      mediaHeight: 320,
+      mediaFrameRate: 30,
+      mediaDurationSeconds: 2,
+      density: 'default',
+      sourceColor: false,
+      mode: 'Pixelated',
+      gridStep: 'finest',
+    },
   ];
   const selectedScenario = process.env.PREVIEW_PERF_SCENARIO;
   const selectedScenarioNames = selectedScenario
     ?.split(',')
     .map((name) => name.trim());
   const selectedScenarios = selectedScenario
-    ? scenarios.filter((scenario) => selectedScenarioNames?.includes(scenario.name))
+    ? scenarios.filter((scenario) =>
+        selectedScenarioNames?.includes(scenario.name),
+      )
     : scenarios;
   if (!selectedScenarios.length)
     throw new Error(`Unknown PREVIEW_PERF_SCENARIO: ${selectedScenario}`);
